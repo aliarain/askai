@@ -1,29 +1,43 @@
 // Types
 export type {
   AiService,
+  ServiceDefinition,
+  ServiceTier,
+  KnownServiceId,
+  CustomServiceInput,
   ServiceConfig,
   CreatePromptOptions,
   PromptResult,
   PromptContent,
 } from './types';
 
-// Services registry
+// The registry: the single source of truth for every destination.
 export {
+  SERVICE_DEFINITIONS,
+  VERIFIED_SERVICE_IDS,
+  DEFAULT_SERVICE_IDS,
+} from './registry';
+
+// Registry access
+export {
+  createRegistry,
   getService,
   getServices,
   getServiceIds,
+  hasService,
   addService,
   removeService,
   resetServices,
-  hasService,
   DEFAULT_SERVICES,
+  type Registry,
 } from './services';
 
-// URL builders
+// Prompt and URL building
 export {
+  buildPrompt,
   createAiPrompt,
   createAiPrompts,
   validateUrl,
-  suggestService,
   openAiPrompt,
+  looksLikeCode,
 } from './builder';
