@@ -1,220 +1,155 @@
 # askai
 
-> Add "Ask AI" buttons to your app in seconds. No dependencies. You own the code.
+> Send anything on your page to ChatGPT, Claude, Perplexity or Grok — with deep links that are actually verified.
 
-Send content to ChatGPT, Claude, Gemini, Grok, Perplexity and 5 more AI services with one click.
-
-## Quick Start
-
-```bash
-npx @raptrx/askai init
-```
+[![npm](https://img.shields.io/npm/v/@raptrx/askai)](https://www.npmjs.com/package/@raptrx/askai)
+[![license](https://img.shields.io/npm/l/@raptrx/askai)](./LICENSE)
 
 ```bash
-npx @raptrx/askai add button
+npm i @raptrx/askai
 ```
-
-That's it. You now have an AI button in your project.
-
-## How It Works
-
-This is **NOT** a dependency. Like [shadcn/ui](https://ui.shadcn.com), we copy the code directly into your project:
-
-```
-your-project/
-├── askai.json                    # Config
-├── src/
-│   ├── lib/askai.ts             # AI services (you own this)
-│   └── components/askai/
-│       └── ask-ai-button.tsx    # Components (you own this)
-```
-
-**You own the code.** Customize it however you want.
-
-## Usage
-
-### Button
 
 ```tsx
-import { AskAIButton } from '@/components/askai/ask-ai-button';
+import { AskAI } from '@raptrx/askai/react';
+import '@raptrx/askai/styles.css';
 
-<AskAIButton
-  service="chatgpt"
-  goal="Explain this code"
-  content={codeString}
+<AskAI goal="Explain this function" content={code} />
+```
+
+That renders a split button: **Copy prompt** on the left, a menu of AI destinations behind the caret.
+
+---
+
+## Why this exists
+
+Every AI vendor accepts a prompt in a URL. None of them document it, none of them promise it will keep working, and they change it without notice. Most published "Ask AI" buttons are quietly broken as a result.
+
+At the time of writing, six of the ten destinations shipped by this package's own 1.x were wrong:
+
+| Destination | What was wrong |
+|---|---|
+| Gemini | Has never supported URL prefill. The button always opened an empty chat. |
+| Microsoft Copilot | Prefill removed in late 2025 after a prompt-injection CVE. |
+| ChatGPT | `?q=` only reaches the composer via a fallback redirect. `?prompt=` is stable. |
+| Google AI Studio | Uses `?prompt=`, not `?q=`. |
+| Perplexity | Needs `/search/new`, not `/search`. |
+| Claude | Real cap is ~14,000 characters, not the 100,000 we claimed. |
+
+So this package treats deep links as what they are — undocumented and perishable — and makes that safe:
+
+- **Every destination carries a tier.** `verified` ships by default. `experimental` must be named explicitly. `deprecated` throws with the reason instead of opening an empty tab.
+- **Every entry records when it was checked** and what the evidence was.
+- **Nothing promises one-click.** Most destinations fill the composer and wait for Enter. The menu says which do which.
+
+## Copy is the primary action
+
+Deep links are bounded by URL length. Claude cuts at ~14,000 characters, Grok at ~7,500, Cursor at 8,000. Sending an AI half a function and letting it answer confidently about the wrong code is worse than not sending anything.
+
+So the primary button copies, which has no ceiling. Deep links are the convenience path, and when content has to be shortened to fit one, the result says so rather than hiding it:
+
+```tsx
+const result = buildPrompt('Review this', longFile, 'claude');
+result.truncated;     // true
+result.droppedChars;  // 36114
+result.autoSubmit;    // false — Claude fills the composer, user presses Enter
+```
+
+## Components
+
+### `<AskAI>` — the split button
+
+```tsx
+<AskAI
+  goal="Explain this function"
+  content={code}
+  services={['chatgpt', 'claude', 'perplexity']}
 />
 ```
 
-### Link (SSR-friendly)
+| Prop | Default | |
+|---|---|---|
+| `goal` | — | What you want the AI to do |
+| `content` | — | String, `{ text, language }`, or any object (serialized as JSON) |
+| `services` | `'default'` | Array of ids, `'default'`, or `'all'` (verified tier only) |
+| `label` | `'Copy prompt'` | Primary button label |
+| `theme` | `'auto'` | `'light'`, `'dark'`, or follow the system |
+| `align` | `'end'` | Menu alignment |
+| `icons` | — | Your own icon per service |
+| `onCopy` / `onOpen` | — | Analytics hooks |
+
+Full menu-button keyboard support: arrows, Home/End, Escape restores focus to the trigger, Tab exits.
+
+### `<AskAILink>` — one destination, no JavaScript
 
 ```tsx
-import { AskAILink } from '@/components/askai/ask-ai-link';
-
-<AskAILink
-  service="claude"
-  goal="Review this"
-  content={codeString}
->
+<AskAILink service="claude" goal="Review this" content={code}>
   Ask Claude
 </AskAILink>
 ```
 
-### Dropdown (multiple services)
+Renders a plain `<a>`. No state, no effects, no client boundary — it works in a server component, and middle-click, Cmd-click and "copy link address" all behave.
 
-```tsx
-import { AskAIDropdown } from '@/components/askai/ask-ai-dropdown';
-
-<AskAIDropdown
-  goal="Explain this code"
-  content={codeString}
-  services={['chatgpt', 'claude', 'gemini', 'perplexity']}
-/>
-```
-
-### Direct URL (vanilla JS)
+## Core (no React)
 
 ```ts
-import { buildPromptUrl, openInAI } from '@/lib/askai';
+import { buildPrompt, createAiPrompt, createAiPrompts } from '@raptrx/askai';
 
-// Get URL
-const url = buildPromptUrl('chatgpt', 'Explain this', code);
-
-// Or open directly
-openInAI('claude', 'Review this', code);
+createAiPrompt('Explain this', code, 'chatgpt');   // → url string
+buildPrompt('Explain this', code, 'claude');       // → PromptResult with truncation info
+createAiPrompts('Explain this', code, 'all');      // → every verified destination
 ```
 
-## CLI Commands
+## Destinations
+
+Run `npx @raptrx/askai list` to see the live table with parameters, caps and tiers.
+
+**Verified** — ChatGPT, Claude, Perplexity, Grok, Kagi Assistant, DeepSeek, Le Chat, T3 Chat, HuggingChat, Duck.ai, Z.ai, Kimi, Qwen Chat, Cursor
+
+**Experimental** — Google AI Studio, GitHub Copilot, v0, Scira
+
+**Deprecated** — Gemini, Microsoft Copilot
+
+## Bring your own
+
+Most companies with an AI assistant have their own. That is a first-class case, not an afterthought:
+
+```ts
+import { createRegistry } from '@raptrx/askai';
+
+const registry = createRegistry();
+registry.add('acme', {
+  name: 'Acme AI',
+  url: 'https://ai.acme.internal/chat',
+  param: 'prompt',
+});
+```
+
+Use `createRegistry()` rather than the global `addService()` anywhere requests share a process — the global registry is shared across every request, so one tenant's destination would leak into another's.
+
+## No vendor logos
+
+This package ships none, deliberately. Every vendor's brand guidelines require their mark be used exactly as supplied, and most prohibit recolouring it or pairing it with third-party UI — which is exactly what a `currentColor` logo inside someone else's button does. A library that bundled marks would push that exposure onto every consumer.
+
+Destinations are identified by name and a neutral glyph. If you have cleared a mark for your own product, pass it in:
+
+```tsx
+<AskAI icons={{ chatgpt: MyClearedMark }} … />
+```
+
+## CLI — own the code instead
+
+Prefer copying the components into your project, shadcn-style?
 
 ```bash
-# Initialize in your project
 npx @raptrx/askai init
-
-# Add components
-npx @raptrx/askai add button      # AskAIButton
-npx @raptrx/askai add link        # AskAILink
-npx @raptrx/askai add dropdown    # AskAIDropdown
-
-# Help
-npx @raptrx/askai --help
 ```
 
-## Supported AI Services
+Generates `core.ts`, `AskAiButton.tsx` and `AskAiLink.tsx` containing only the destinations you pick, with the verified parameters baked in. The generated output is compiled by this repo's test suite on every commit.
 
-| Service | ID | URL |
-|---------|-------|-----|
-| ChatGPT | `chatgpt` | chat.openai.com |
-| Claude | `claude` | claude.ai |
-| Gemini | `gemini` | gemini.google.com |
-| Grok | `grok` | grok.x.ai |
-| Perplexity | `perplexity` | perplexity.ai |
-| DeepSeek | `deepseek` | chat.deepseek.com |
-| Mistral | `mistral` | chat.mistral.ai |
-| Copilot | `copilot` | copilot.microsoft.com |
-| Kagi | `kagi` | kagi.com |
-| Google AI Studio | `google` | aistudio.google.com |
+## Docs
 
-## Configuration
-
-After running `init`, you'll have an `askai.json`:
-
-```json
-{
-  "typescript": true,
-  "srcDir": "src",
-  "utilsPath": "./src/lib/askai",
-  "componentsPath": "./src/components/askai"
-}
-```
-
-## Customization
-
-Since you own the code, you can:
-
-- Add your own AI services
-- Change the button styles
-- Modify the URL building logic
-- Add analytics/tracking
-- Integrate with your design system
-
-Example - add a new AI service:
-
-```ts
-// In src/lib/askai.ts
-export const services = {
-  // ... existing services
-  myai: {
-    name: 'My AI',
-    url: 'https://myai.com',
-    buildUrl: (prompt) => `https://myai.com/chat?q=${encodeURIComponent(prompt)}`,
-  },
-};
-```
-
-## Why askai?
-
-- **Zero runtime dependencies** - Code is copied to your project
-- **Full control** - Customize everything
-- **Type-safe** - Full TypeScript support
-- **10 AI services** - ChatGPT, Claude, Gemini, and more
-- **Framework agnostic** - Works with React, Next.js, Remix, etc.
-
-## Examples
-
-### Code Explainer
-
-```tsx
-function CodeBlock({ code, language }) {
-  return (
-    <div>
-      <pre>{code}</pre>
-      <AskAIDropdown
-        goal={`Explain this ${language} code`}
-        content={code}
-        services={['chatgpt', 'claude']}
-      />
-    </div>
-  );
-}
-```
-
-### Documentation Helper
-
-```tsx
-function DocPage({ content }) {
-  return (
-    <article>
-      {content}
-      <AskAIButton
-        service="perplexity"
-        goal="Find more information about"
-        content={content}
-      >
-        Research More
-      </AskAIButton>
-    </article>
-  );
-}
-```
-
-### Error Assistant
-
-```tsx
-function ErrorBoundary({ error }) {
-  return (
-    <div>
-      <p>Something went wrong</p>
-      <AskAIButton
-        service="chatgpt"
-        goal="Help me fix this error"
-        content={error.stack}
-      >
-        Ask AI for Help
-      </AskAIButton>
-    </div>
-  );
-}
-```
+[docs.aliarain.com/askai](https://docs.aliarain.com/askai)
 
 ## License
 
-MIT
+MIT © [Ali Arain](https://aliarain.com)
