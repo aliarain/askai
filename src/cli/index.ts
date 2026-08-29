@@ -1,210 +1,221 @@
 import prompts from 'prompts';
 import pc from 'picocolors';
-import fs from 'fs';
-import path from 'path';
-import { coreTemplate, buttonTemplate, buttonBarTemplate } from './templates';
+import fs from 'node:fs';
+import path from 'node:path';
+import {
+  SERVICE_DEFINITIONS,
+  DEFAULT_SERVICE_IDS,
+  type ServiceDefinition,
+} from '../core';
+import { renderCore, renderButton, renderLink } from './templates';
+
+const VERSION = '2.0.0';
 
 const LOGO = `
-  ${pc.bold(pc.cyan('askai'))} ${pc.dim('v1.4')}
-  ${pc.dim('Add AI buttons to your app')}
+  ${pc.bold(pc.cyan('askai'))} ${pc.dim('v' + VERSION)}
+  ${pc.dim('Ask AI buttons you own, with verified deep links')}
 `;
 
-const AI_SERVICES = [
-  { title: 'ChatGPT', value: 'chatgpt' },
-  { title: 'Claude', value: 'claude' },
-  { title: 'Gemini', value: 'gemini' },
-  { title: 'Grok', value: 'grok' },
-  { title: 'Perplexity', value: 'perplexity' },
-  { title: 'DeepSeek', value: 'deepseek' },
-  { title: 'Mistral', value: 'mistral' },
-  { title: 'Copilot', value: 'copilot' },
-  { title: 'Kagi', value: 'kagi' },
-  { title: 'Google AI', value: 'google' },
-];
-
-// ─────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────
+/** Selectable destinations, newest-verified first, deprecated ones excluded. */
+const SELECTABLE: ServiceDefinition[] = SERVICE_DEFINITIONS.filter(
+  (s) => s.tier !== 'deprecated'
+);
 
 function ensureDir(filePath: string): void {
   const dir = path.dirname(filePath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
-// ─────────────────────────────────────────────────────────────
-// Commands
-// ─────────────────────────────────────────────────────────────
+function detectFramework(cwd: string): { framework: string; suggestedPath: string } {
+  const pkgPath = path.join(cwd, 'package.json');
+  let framework = 'React';
+
+  if (fs.existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+      const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+      if (deps.next) framework = 'Next.js';
+      else if (deps.vite) framework = 'Vite';
+      else if (deps['@remix-run/react']) framework = 'Remix';
+      else if (deps.astro) framework = 'Astro';
+    } catch {
+      // A malformed package.json is the consumer's problem, not ours; fall
+      // back to the generic suggestion rather than failing the command.
+    }
+  }
+
+  const hasSrc = fs.existsSync(path.join(cwd, 'src'));
+  const suggestedPath = hasSrc ? './src/components/ask-ai' : './components/ask-ai';
+  return { framework, suggestedPath };
+}
 
 async function init(): Promise<void> {
   console.log(LOGO);
 
-  // Detect environment
-  const packageJsonPath = path.join(process.cwd(), 'package.json');
-  let framework = 'React';
-  let hasSrc = fs.existsSync(path.join(process.cwd(), 'src'));
-  let hasApp = fs.existsSync(path.join(process.cwd(), 'app'));
-
-  if (fs.existsSync(packageJsonPath)) {
-    try {
-      const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
-      const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-      if (deps['next']) {
-        framework = 'Next.js';
-        hasApp = fs.existsSync(path.join(process.cwd(), 'app')) || fs.existsSync(path.join(process.cwd(), 'src/app'));
-      } else if (deps['vite']) {
-        framework = 'Vite';
-      } else if (deps['@remix-run/react']) {
-        framework = 'Remix';
-      }
-    } catch (e) {
-      // Ignore parse errors
-    }
-  }
-
-  console.log(pc.dim(`  Detecting environment: ${pc.cyan(framework)} found.`));
+  const cwd = process.cwd();
+  const { framework, suggestedPath } = detectFramework(cwd);
+  console.log(pc.dim(`  Detected ${pc.cyan(framework)}.`));
   console.log();
 
   const response = await prompts([
     {
       type: 'text',
       name: 'goal',
-      message: 'What is your default goal/prompt?',
+      message: 'Default goal for the prompt',
       initial: 'Explain this code',
     },
     {
       type: 'multiselect',
       name: 'services',
-      message: 'Which AI tools do you want to add? (Space to select, Enter to confirm)',
-      choices: AI_SERVICES,
+      message: 'Destinations to include',
+      instructions: false,
+      hint: '- space to select, enter to confirm',
       min: 1,
+      choices: SELECTABLE.map((s) => ({
+        title: s.name,
+        value: s.id,
+        description:
+          (s.tier === 'experimental' ? 'experimental · ' : '') +
+          (s.autoSubmit ? 'runs the prompt' : 'fills the composer'),
+        selected: (DEFAULT_SERVICE_IDS as readonly string[]).includes(s.id),
+      })),
     },
     {
       type: 'text',
-      name: 'componentsPath',
-      message: 'Where should we create the Ask AI components?',
-      initial: framework === 'Next.js'
-        ? (hasApp ? './app/components/ask-ai' : './components/ask-ai')
-        : (hasSrc ? './src/components/ask-ai' : './components/ask-ai'),
+      name: 'dir',
+      message: 'Where should the components go?',
+      initial: suggestedPath,
     },
   ]);
 
-  if (!response.componentsPath || !response.services || response.services.length === 0) {
-    console.log(pc.dim('Cancelled.'));
+  if (!response.dir || !response.services?.length) {
+    console.log(pc.dim('  Cancelled.'));
     return;
   }
 
-  const outDir = path.resolve(process.cwd(), response.componentsPath);
-  ensureDir(path.join(outDir, 'core.tsx'));
+  const selected: ServiceDefinition[] = SELECTABLE.filter((s) =>
+    (response.services as string[]).includes(s.id)
+  );
 
-  const corePath = path.join(outDir, 'core.tsx');
-  const buttonPath = path.join(outDir, 'AskAiButton.tsx');
-  const buttonBarPath = path.join(outDir, 'AskAiButtonBar.tsx');
+  const outDir = path.resolve(cwd, response.dir);
+  const files: Array<[string, string]> = [
+    ['core.ts', renderCore(selected)],
+    ['AskAiButton.tsx', renderButton(selected.map((s) => s.id), response.goal)],
+    ['AskAiLink.tsx', renderLink(selected[0].id, response.goal)],
+  ];
 
-  // Filter services from core template
-  let finalCoreTemplate = coreTemplate;
-  const servicesToKeep = response.services as string[];
-
-  // Create regex pattern to match service configs to remove
-  const allServices = AI_SERVICES.map(s => s.value);
-  for (const service of allServices) {
-    if (!servicesToKeep.includes(service)) {
-      // Regex to match: service_name: { ... }, 
-      const regex = new RegExp(`\\s*${service}:\\s*{[^{}]*{[^{}]*}[^{}]*},?|\\s*${service}:\\s*{[^{}]*},?`, 'g');
-      finalCoreTemplate = finalCoreTemplate.replace(regex, '');
-    }
+  for (const [name, contents] of files) {
+    const target = path.join(outDir, name);
+    ensureDir(target);
+    fs.writeFileSync(target, contents);
+    console.log(pc.green('  ✓'), 'Created', pc.cyan(path.relative(cwd, target)));
   }
 
-  // Inject defaults into components
-  const finalButtonTemplate = buttonTemplate
-    .replace("'chatgpt'", "'" + servicesToKeep[0] + "'")
-    .replace("'Explain this code'", "'" + response.goal + "'");
+  fs.writeFileSync(
+    path.join(cwd, '.askaiconfig.json'),
+    JSON.stringify(
+      {
+        version: VERSION,
+        goal: response.goal,
+        services: selected.map((s) => s.id),
+        dir: response.dir,
+        framework,
+      },
+      null,
+      2
+    ) + '\n'
+  );
 
-  const arrayString = "['" + servicesToKeep.join("', '") + "']";
-  const finalButtonBarTemplate = buttonBarTemplate
-    .replace("['chatgpt', 'claude', 'gemini']", arrayString)
-    .replace("'Explain this code'", "'" + response.goal + "'");
-
-
-  // Write files
-  fs.writeFileSync(corePath, finalCoreTemplate);
-  console.log(pc.green('✓'), 'Created', pc.cyan(corePath));
-
-  fs.writeFileSync(buttonPath, finalButtonTemplate);
-  console.log(pc.green('✓'), 'Created', pc.cyan(buttonPath));
-
-  fs.writeFileSync(buttonBarPath, finalButtonBarTemplate);
-  console.log(pc.green('✓'), 'Created', pc.cyan(buttonBarPath));
-
+  const notes = selected.filter((s) => !s.autoSubmit);
   console.log();
-  console.log(pc.bold('Success! Next steps:'));
+  console.log(pc.bold('  Next steps'));
   console.log();
-  console.log('  ' + pc.cyan("import { AskAiButton } from '" + response.componentsPath + "/AskAiButton'"));
-  console.log('  <AskAiButton content={yourContent} />');
+  console.log(
+    '    ' + pc.cyan(`import { AskAiButton } from '${response.dir}/AskAiButton'`)
+  );
+  console.log('    ' + pc.cyan('<AskAiButton content={yourContent} />'));
   console.log();
-  console.log('  ' + pc.cyan("import { AskAiButtonBar } from '" + response.componentsPath + "/AskAiButtonBar'"));
-  console.log('  <AskAiButtonBar content={yourContent} />');
-  console.log();
-  console.log(pc.yellow('  Open for new opportunities: ') + pc.underline('https://aliarain.com'));
-  console.log(pc.dim('  Support and contributions are welcome!\\n'));
-
-  // Write config
-  const config = {
-    goal: response.goal,
-    services: response.services,
-    path: response.componentsPath,
-    framework,
-    version: '1.2.0'
-  };
-  fs.writeFileSync(path.join(process.cwd(), '.askaiconfig.json'), JSON.stringify(config, null, 2));
+  if (notes.length) {
+    console.log(
+      pc.dim(
+        `    ${notes.length} of ${selected.length} destinations fill the composer\n` +
+          '    rather than sending. Label your button accordingly.'
+      )
+    );
+    console.log();
+  }
 }
 
 function showHelp(): void {
   console.log(LOGO);
   console.log(
-    '\\n' +
-    pc.bold('Usage:') + '\\n' +
-    '  npx @raptrx/askai ' + pc.cyan('<command>') + ' [options]\\n\\n' +
-    pc.bold('Commands:') + '\\n' +
-    '  ' + pc.cyan('init') + '              Initialize askai in your project\\n\\n' +
-    pc.bold('Examples:') + '\\n' +
-    '  npx @raptrx/askai init\\n\\n' +
-    pc.dim('Documentation: https://github.com/aliarain/askai') + '\\n'
+    pc.bold('  Usage') +
+      '\n    npx @raptrx/askai ' +
+      pc.cyan('<command>') +
+      '\n\n' +
+      pc.bold('  Commands') +
+      '\n    ' +
+      pc.cyan('init') +
+      '        Generate Ask AI components in your project' +
+      '\n    ' +
+      pc.cyan('list') +
+      '        Show every destination and its verification status' +
+      '\n\n' +
+      pc.dim('  Docs: https://docs.aliarain.com/askai') +
+      '\n'
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// Main
-// ─────────────────────────────────────────────────────────────
+function list(): void {
+  console.log(LOGO);
+  const width = Math.max(...SERVICE_DEFINITIONS.map((s) => s.name.length));
+  for (const tier of ['verified', 'experimental', 'deprecated'] as const) {
+    const rows = SERVICE_DEFINITIONS.filter((s) => s.tier === tier);
+    if (!rows.length) continue;
+    const color = tier === 'verified' ? pc.green : tier === 'experimental' ? pc.yellow : pc.red;
+    console.log('  ' + color(pc.bold(tier)));
+    for (const s of rows) {
+      console.log(
+        '    ' +
+          s.name.padEnd(width) +
+          '  ' +
+          pc.dim(
+            tier === 'deprecated'
+              ? 'no prefill support'
+              : `?${s.param}=  ·  ${s.maxLength} chars  ·  ${s.autoSubmit ? 'runs' : 'fills'}`
+          )
+      );
+    }
+    console.log();
+  }
+}
 
 async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  const command = args[0];
-
-  switch (command) {
+  switch (process.argv[2]) {
     case 'init':
       await init();
       break;
-    case '-h':
-    case '--help':
-    case 'help':
-    case undefined:
-      showHelp();
+    case 'list':
+      list();
       break;
     case '-v':
     case '--version':
-      console.log('1.4.0');
+      console.log(VERSION);
+      break;
+    case undefined:
+    case '-h':
+    case '--help':
+    case 'help':
+      showHelp();
       break;
     default:
-      console.log(pc.red('✗'), 'Unknown command:', pc.yellow(command));
-      console.log();
-      console.log('Run', pc.cyan('npx @raptrx/askai --help'), 'for usage.');
+      console.log(pc.red('  ✗'), 'Unknown command:', pc.yellow(process.argv[2]));
+      console.log('  Run', pc.cyan('npx @raptrx/askai --help'));
       process.exit(1);
   }
 }
 
 main().catch((err) => {
-  console.error(pc.red('Error:'), err.message);
+  console.error(pc.red('Error:'), err instanceof Error ? err.message : err);
   process.exit(1);
 });
