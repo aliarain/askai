@@ -1,0 +1,345 @@
+/**
+ * askai styles
+ *
+ * Import once, anywhere:  import '@raptrx/askai/styles.css'
+ *
+ * Everything is driven by the custom properties in the first block, so you can
+ * retheme the whole control from your own stylesheet without overriding rules.
+ * Class names are prefixed `askai-` and never rely on element selectors, so
+ * nothing here leaks into surrounding markup.
+ */
+
+.askai {
+  /* Surfaces */
+  --askai-bg: #ffffff;
+  --askai-bg-hover: #f7f7f8;
+  --askai-bg-active: #efeff1;
+  --askai-fg: #1a1a1a;
+  --askai-fg-muted: #6b6b70;
+  --askai-border: #e2e2e5;
+
+  /* Menu */
+  --askai-menu-bg: #ffffff;
+  --askai-menu-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.04),
+    0 2px 4px rgb(0 0 0 / 0.04),
+    0 8px 24px rgb(0 0 0 / 0.08);
+
+  /* Focus */
+  --askai-focus: #2563eb;
+
+  /* Shape. The menu radius is the item radius plus the menu padding, so nested
+     corners stay concentric. */
+  --askai-radius: 8px;
+  --askai-radius-inner: 5px;
+  --askai-padding: 3px;
+
+  /* Motion. Short, because these are high-frequency interactions. */
+  --askai-duration: 120ms;
+  --askai-ease: cubic-bezier(0.2, 0, 0, 1);
+
+  display: inline-flex;
+  position: relative;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+@media (prefers-color-scheme: dark) {
+  .askai:not([data-theme='light']) {
+    --askai-bg: #1c1c1f;
+    --askai-bg-hover: #26262a;
+    --askai-bg-active: #303035;
+    --askai-fg: #f2f2f3;
+    --askai-fg-muted: #a1a1a8;
+    --askai-border: #34343a;
+    --askai-menu-bg: #1c1c1f;
+    --askai-menu-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.06),
+      0 2px 4px rgb(0 0 0 / 0.3),
+      0 8px 24px rgb(0 0 0 / 0.45);
+    --askai-focus: #60a5fa;
+  }
+}
+
+.askai[data-theme='dark'] {
+  --askai-bg: #1c1c1f;
+  --askai-bg-hover: #26262a;
+  --askai-bg-active: #303035;
+  --askai-fg: #f2f2f3;
+  --askai-fg-muted: #a1a1a8;
+  --askai-border: #34343a;
+  --askai-menu-bg: #1c1c1f;
+  --askai-menu-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.06),
+    0 2px 4px rgb(0 0 0 / 0.3),
+    0 8px 24px rgb(0 0 0 / 0.45);
+  --askai-focus: #60a5fa;
+}
+
+/* ---------------------------------------------------------------------------
+   Split button
+   --------------------------------------------------------------------------- */
+
+.askai-group {
+  display: inline-flex;
+  align-items: stretch;
+  background: var(--askai-bg);
+  border: 1px solid var(--askai-border);
+  border-radius: var(--askai-radius);
+}
+
+.askai-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  /* 32px content + padding clears the 40px desktop target once the border is
+     counted, and the 24px WCAG minimum with room to spare. */
+  min-height: 34px;
+  padding: 0 10px;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: var(--askai-fg);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  border-radius: calc(var(--askai-radius) - 1px);
+  transition-property: background-color, scale;
+  transition-duration: var(--askai-duration);
+  transition-timing-function: var(--askai-ease);
+}
+
+.askai-btn:hover {
+  background: var(--askai-bg-hover);
+}
+
+.askai-btn:active {
+  background: var(--askai-bg-active);
+  scale: 0.96;
+}
+
+.askai-btn:focus-visible {
+  outline: 2px solid var(--askai-focus);
+  outline-offset: -2px;
+  /* Keep the ring above the sibling's background so it is never clipped. */
+  z-index: 1;
+}
+
+.askai-btn[disabled],
+.askai-btn[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* The primary half keeps the left corners, the trigger keeps the right. */
+.askai-group .askai-btn--primary {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.askai-group .askai-btn--trigger {
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+  padding: 0 7px;
+  color: var(--askai-fg-muted);
+}
+
+.askai-divider {
+  width: 1px;
+  background: var(--askai-border);
+  /* Inset so the rule reads as a separator rather than a second border. */
+  margin-block: 6px;
+  flex: none;
+}
+
+.askai-caret {
+  transition: rotate var(--askai-duration) var(--askai-ease);
+}
+
+.askai-btn--trigger[aria-expanded='true'] .askai-caret {
+  rotate: 180deg;
+}
+
+/* ---------------------------------------------------------------------------
+   Menu
+   --------------------------------------------------------------------------- */
+
+.askai-menu {
+  position: absolute;
+  z-index: 50;
+  inset-block-start: calc(100% + 6px);
+  inset-inline-end: 0;
+  min-width: 200px;
+  max-width: min(280px, 90vw);
+  padding: var(--askai-padding);
+  margin: 0;
+  list-style: none;
+  background: var(--askai-menu-bg);
+  border-radius: var(--askai-radius);
+  box-shadow: var(--askai-menu-shadow);
+  animation: askai-menu-in var(--askai-duration) var(--askai-ease);
+}
+
+.askai-menu[data-align='start'] {
+  inset-inline-end: auto;
+  inset-inline-start: 0;
+}
+
+@keyframes askai-menu-in {
+  from {
+    opacity: 0;
+    translate: 0 -4px;
+  }
+}
+
+.askai-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--askai-fg);
+  font: inherit;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: var(--askai-radius-inner);
+  transition: background-color var(--askai-duration) var(--askai-ease);
+}
+
+.askai-item:hover,
+.askai-item[data-active='true'] {
+  background: var(--askai-bg-hover);
+}
+
+.askai-item:focus-visible {
+  outline: 2px solid var(--askai-focus);
+  outline-offset: -2px;
+}
+
+.askai-item-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Reads "opens with your prompt ready" vs "runs it". Never promise one-click:
+   vendors have repeatedly removed auto-submit while keeping prefill. */
+.askai-item-hint {
+  flex: none;
+  font-size: 11px;
+  color: var(--askai-fg-muted);
+}
+
+.askai-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.askai-sep {
+  height: 1px;
+  margin: var(--askai-padding) 0;
+  background: var(--askai-border);
+  border: 0;
+}
+
+.askai-section {
+  padding: 6px 8px 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--askai-fg-muted);
+}
+
+/* Announced-only text: present for screen readers, invisible on screen. */
+.askai-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Standalone link
+   --------------------------------------------------------------------------- */
+
+.askai-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+  background: var(--askai-bg);
+  border: 1px solid var(--askai-border);
+  border-radius: var(--askai-radius);
+  color: var(--askai-fg);
+  font-weight: 500;
+  text-decoration: none;
+  transition-property: background-color, scale;
+  transition-duration: var(--askai-duration);
+  transition-timing-function: var(--askai-ease);
+}
+
+.askai-link:hover {
+  background: var(--askai-bg-hover);
+}
+
+.askai-link:active {
+  background: var(--askai-bg-active);
+  scale: 0.96;
+}
+
+.askai-link:focus-visible {
+  outline: 2px solid var(--askai-focus);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+   Reduced motion
+   --------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .askai-btn,
+  .askai-link,
+  .askai-item,
+  .askai-caret {
+    transition-duration: 1ms;
+  }
+
+  .askai-btn:active,
+  .askai-link:active {
+    scale: 1;
+  }
+
+  .askai-menu {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Forced colors
+   --------------------------------------------------------------------------- */
+
+@media (forced-colors: active) {
+  .askai-group,
+  .askai-link,
+  .askai-menu {
+    border: 1px solid CanvasText;
+  }
+
+  .askai-btn:focus-visible,
+  .askai-item:focus-visible {
+    outline-color: Highlight;
+  }
+}

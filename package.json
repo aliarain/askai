@@ -1,7 +1,7 @@
 {
   "name": "@raptrx/askai",
-  "version": "1.4.0",
-  "description": "Simplified AI prompt deep-linking for ChatGPT, Claude, Gemini, Grok, Perplexity and more",
+  "version": "2.0.0",
+  "description": "Verified AI deep-links and an Ask AI split button for ChatGPT, Claude, Perplexity, Grok and more",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -10,20 +10,30 @@
   },
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
+      "require": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.mjs",
+      "require": "./dist/react.js"
+    },
+    "./styles.css": "./dist/styles.css",
+    "./package.json": "./package.json"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "npx rollup -c",
+    "build": "rollup -c",
     "dev": "rollup -c -w",
     "test": "vitest run",
     "test:watch": "vitest",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
     "picocolors": "^1.0.0",
@@ -51,15 +61,25 @@
     "ai",
     "chatgpt",
     "claude",
-    "gemini",
-    "grok",
     "perplexity",
+    "grok",
     "deepseek",
     "mistral",
+    "qwen",
+    "kimi",
     "prompt",
     "deep-link",
+    "ask-ai",
     "react",
     "cli"
   ],
-  "sideEffects": false
+  "sideEffects": false,
+  "peerDependencies": {
+    "react": ">=17.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  }
 }

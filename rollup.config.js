@@ -1,8 +1,23 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import typescript from '@rollup/plugin-typescript';
 import dts from 'rollup-plugin-dts';
 
 const external = ['react', 'react-dom', 'react/jsx-runtime'];
-const cliExternal = ['prompts', 'picocolors', 'fs', 'path'];
+const cliExternal = ['prompts', 'picocolors', 'fs', 'path', 'node:fs', 'node:path'];
+
+/** Copy the stylesheet into dist, since nothing imports it from JS. */
+function copyStyles() {
+  return {
+    name: 'copy-styles',
+    writeBundle() {
+      const from = path.resolve('src/components/styles.css');
+      const to = path.resolve('dist/styles.css');
+      fs.mkdirSync(path.dirname(to), { recursive: true });
+      fs.copyFileSync(from, to);
+    },
+  };
+}
 
 export default [
   // Core - ESM and CJS
@@ -18,11 +33,20 @@ export default [
   {
     input: 'src/react.ts',
     output: [
-      { file: 'dist/react.mjs', format: 'esm', sourcemap: true },
-      { file: 'dist/react.js', format: 'cjs', sourcemap: true },
+      // Rollup strips module-level directives when bundling, so the
+      // `'use client'` in AskAI.tsx never reaches the output. Without it the
+      // React App Router treats this as a server module and throws on the
+      // first hook. Re-add it as a banner on the bundle itself.
+      { file: 'dist/react.mjs', format: 'esm', sourcemap: true, banner: "'use client';" },
+      { file: 'dist/react.js', format: 'cjs', sourcemap: true, banner: "'use client';" },
     ],
     external,
-    plugins: [typescript({ tsconfig: './tsconfig.build.json' })],
+    onwarn(warning, warn) {
+      // Expected: we re-add the directive as a banner above.
+      if (warning.code === 'MODULE_LEVEL_DIRECTIVE') return;
+      warn(warning);
+    },
+    plugins: [typescript({ tsconfig: './tsconfig.build.json' }), copyStyles()],
   },
   // CLI - CJS (for Node.js)
   {

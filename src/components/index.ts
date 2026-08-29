@@ -1,12 +1,19 @@
-// React Components
-export { AiButton, type AiButtonProps } from './AiButton';
-export { AiButtonBar, type AiButtonBarProps } from './AiButtonBar';
+// Components
+export { AskAI, type AskAIProps } from './AskAI';
+export { AskAILink, type AskAILinkProps } from './AskAILink';
 
-// Icons
-export { getIcon, icons } from './icons';
+// Glyphs. No vendor logos ship with this package; supply your own via `icons`.
+export {
+  SparkleIcon,
+  CopyIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  ExternalIcon,
+  MarkdownIcon,
+  getIcon,
+  type IconProps,
+  type ServiceIcons,
+} from './icons';
 
-// Styles
-export { themes, type Theme } from './styles';
-
-// Re-export core utilities for convenience
+// Core utilities, re-exported for convenience.
 export * from '../core';
