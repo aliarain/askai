@@ -1,69 +1,99 @@
-/**
- * Supported AI service identifiers
- */
-export type AiService =
-  | 'chatgpt'
-  | 'claude'
-  | 'gemini'
-  | 'grok'
-  | 'perplexity'
-  | 'google'
-  | 'kagi'
-  | 'deepseek'
-  | 'mistral'
-  | 'copilot'
-  | (string & {});
+import type { KnownServiceId, ServiceDefinition } from './registry';
+
+export type { ServiceDefinition, ServiceTier, KnownServiceId } from './registry';
 
 /**
- * Configuration for an AI service
+ * An AI service identifier.
+ *
+ * The known ids are derived from the registry, so editors autocomplete them,
+ * but any string is accepted so consumers can register their own destination —
+ * an internal assistant, a self-hosted model — without patching this union.
+ */
+export type AiService = KnownServiceId | (string & {});
+
+/**
+ * Shape accepted when registering a custom service.
+ *
+ * `id`, `tier` and `verifiedOn` are supplied by the registry on your behalf,
+ * and the remaining registry metadata is optional because a private assistant
+ * has no vendor or brand color worth stating.
+ */
+export interface CustomServiceInput {
+  name: string;
+  url: string;
+  param: string;
+  extraParams?: Record<string, string>;
+  maxLength?: number;
+  autoSubmit?: boolean;
+  color?: string;
+  vendor?: string;
+  note?: string;
+}
+
+/**
+ * @deprecated Use {@link CustomServiceInput}. Retained so that code written
+ * against 1.x keeps compiling; `baseUrl` maps to `url` and `promptParam` to
+ * `param`.
  */
 export interface ServiceConfig {
-  /** Display name for the service */
   name: string;
-  /** Base URL pattern for the service */
   baseUrl: string;
-  /** URL parameter name for the prompt */
   promptParam: string;
-  /** Optional additional parameters */
   params?: Record<string, string>;
-  /** Method to build the URL (default: 'query') */
   method?: 'query' | 'hash' | 'path';
-  /** Maximum prompt length (chars) */
   maxLength?: number;
-  /** Icon identifier */
   icon?: string;
-  /** Service color (hex) */
   color?: string;
 }
 
-/**
- * Options for creating an AI prompt URL
- */
 export interface CreatePromptOptions {
-  /** Model to use (if supported by service) */
-  model?: string;
-  /** Enable artifacts/canvas mode (Claude, ChatGPT) */
-  artifacts?: boolean;
-  /** Additional URL parameters */
+  /** Extra query parameters to append. */
   params?: Record<string, string>;
-  /** Open in new tab (for UI components) */
-  newTab?: boolean;
-  /** Custom formatting for the prompt */
-  format?: 'text' | 'code' | 'markdown';
+  /**
+   * How to format `content` in the prompt body.
+   *
+   * Defaults to auto-detection: content that looks like source is fenced,
+   * everything else is passed through unchanged.
+   */
+  format?: 'text' | 'code' | 'markdown' | 'auto';
+  /** Language hint for the fence when `format` resolves to `code`. */
+  language?: string;
+  /**
+   * What to do when the prompt exceeds the destination's length cap.
+   *
+   * - `truncate` (default) cut the content and mark the result truncated
+   * - `error`             throw, so the caller decides
+   *
+   * There is deliberately no silent option. Sending an AI half a function and
+   * letting it answer confidently about the wrong code is the worst outcome
+   * available, so a truncated prompt is always reported back to the caller.
+   */
+  onOverflow?: 'truncate' | 'error';
 }
 
-/**
- * Result from batch URL generation
- */
+/** The content to send. */
+export type PromptContent =
+  | string
+  | { text: string; language?: string }
+  | Record<string, unknown>;
+
 export interface PromptResult {
   service: AiService;
-  url: string;
+  /** Display name of the destination. */
   name: string;
-  icon?: string;
+  /** The deep link. */
+  url: string;
+  /** Brand color, for consumers that opt into branded rendering. */
   color?: string;
+  /**
+   * Whether the destination runs the prompt on arrival or merely fills the
+   * composer. Use it to write honest labels; never promise one-click.
+   */
+  autoSubmit: boolean;
+  /** True when content was cut to fit the destination's cap. */
+  truncated: boolean;
+  /** Characters dropped, or 0. */
+  droppedChars: number;
 }
 
-/**
- * Content types that can be passed to createAiPrompt
- */
-export type PromptContent = string | { text: string; language?: string } | Record<string, unknown>;
+export type { ServiceDefinition as AiServiceDefinition };
