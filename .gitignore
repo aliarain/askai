@@ -5,3 +5,8 @@ dist/
 coverage/
 .env
 .env.local
+
+# Locally installed agent skills (restore with: npx skills experimental_install)
+.agents/
+agent/
+.claude/
