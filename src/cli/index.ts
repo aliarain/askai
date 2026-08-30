@@ -182,7 +182,7 @@ function list(): void {
           pc.dim(
             tier === 'deprecated'
               ? 'no prefill support'
-              : `?${s.param}=  ·  ${s.maxLength} chars  ·  ${s.autoSubmit ? 'runs' : 'fills'}`
+              : `?${s.param}=  ·  ${s.maxLength} chars (${s.capSource ?? 'assumed'})  ·  ${s.autoSubmit ? 'runs' : 'fills'}`
           )
       );
     }

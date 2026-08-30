@@ -2,6 +2,29 @@
 
 ## 2.0.0
 
+### Verification round two (2026-08-30)
+
+All four previously-experimental destinations were corroborated by a second
+independent source and promoted to verified, taking the verified count to 18
+and leaving no experimental entries:
+
+- `aistudio` — confirmed by two Google DeepMind/Cloud engineers and two
+  shipping implementations. Fills the composer only; auto-submit is still an
+  open feature request. Thinnest evidence of the verified set, as it rests on
+  an announcement rather than documentation.
+- `github-copilot` — confirmed in GitHub's own production source, four call
+  sites plus a test. Uses `prompt`; `q` does not work, which is why a widely
+  cited community thread wrongly concluded prefill was impossible.
+- `v0` — **corrected**: it auto-submits, with no way to opt out. We previously
+  claimed it did not.
+- `scira` — **corrected**: it auto-submits, confirmed by reading the vendor's
+  source rather than inferring.
+
+Also adds `capSource` to every entry, recording whether a length cap is
+`documented`, `measured`, or `assumed`. None of the four promoted vendors
+publish a cap, and the registry now says so instead of implying a measured
+number.
+
 Breaking. Every deep-link parameter was re-verified against vendor
 documentation and shipping implementations; six of the ten destinations in
 1.x were wrong.

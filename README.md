@@ -103,11 +103,11 @@ createAiPrompts('Explain this', code, 'all');      // → every verified destina
 
 Run `npx @raptrx/askai list` to see the live table with parameters, caps and tiers.
 
-**Verified** — ChatGPT, Claude, Perplexity, Grok, Kagi Assistant, DeepSeek, Le Chat, T3 Chat, HuggingChat, Duck.ai, Z.ai, Kimi, Qwen Chat, Cursor
+**Verified (18)** — ChatGPT, Claude, Perplexity, Grok, Kagi Assistant, DeepSeek, Le Chat, T3 Chat, HuggingChat, Duck.ai, Z.ai, Kimi, Qwen Chat, Cursor, Google AI Studio, GitHub Copilot, v0, Scira
 
-**Experimental** — Google AI Studio, GitHub Copilot, v0, Scira
+**Deprecated (2)** — Gemini, Microsoft Copilot. Neither supports prefill; both throw with the reason rather than opening an empty chat.
 
-**Deprecated** — Gemini, Microsoft Copilot
+Caps are labelled by provenance — `documented` where the vendor publishes one, `measured` where it was observed, `assumed` where nothing exists and we chose a conservative floor. `npx @raptrx/askai list` shows which is which.
 
 ## Bring your own
 

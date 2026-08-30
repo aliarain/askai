@@ -7,6 +7,7 @@ import {
   looksLikeCode,
 } from './builder';
 import { VERIFIED_SERVICE_IDS } from './registry';
+import { getService } from './services';
 
 const GOAL = 'Explain this';
 const CODE = 'const x = 1;';
@@ -97,15 +98,14 @@ describe('overflow handling', () => {
   it('keeps every destination inside its own cap', () => {
     const long = 'y'.repeat(100_000);
     for (const id of VERIFIED_SERVICE_IDS) {
+      const def = getService(id)!;
       const result = buildPrompt(GOAL, long, id);
-      const value = new URL(result.url).searchParams.get(
-        id === 'kimi' ? 'prefill_prompt' : id === 'qwen' || id === 'cursor' ? 'text' : id === 'chatgpt' ? 'prompt' : 'q'
-      )!;
-      expect(value.length, id).toBeLessThanOrEqual(
-        // maxLength is the budget for the assembled prompt
-        20000
-      );
+      // Read the parameter name from the registry rather than restating it:
+      // the point of the registry is that nothing else hardcodes these.
+      const value = new URL(result.url).searchParams.get(def.param)!;
+      expect(value.length, id).toBeLessThanOrEqual(def.maxLength);
       expect(result.truncated, id).toBe(true);
+      expect(result.droppedChars, id).toBeGreaterThan(0);
     }
   });
 });
@@ -120,8 +120,9 @@ describe('createAiPrompts', () => {
   it("resolves 'all' to the verified tier only", () => {
     const results = createAiPrompts(GOAL, CODE, 'all');
     expect(results.map((r) => r.service)).toEqual([...VERIFIED_SERVICE_IDS]);
+    // Deprecated destinations never appear, however 'all' is spelled.
     expect(results.map((r) => r.service)).not.toContain('gemini');
-    expect(results.map((r) => r.service)).not.toContain('aistudio');
+    expect(results.map((r) => r.service)).not.toContain('copilot');
   });
 
   it('reports whether each destination will actually run the prompt', () => {

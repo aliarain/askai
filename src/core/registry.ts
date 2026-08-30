@@ -60,6 +60,17 @@ export interface ServiceDefinition {
   /** Vendor brand color. Only rendered when the consumer opts into branding. */
   color: string;
   tier: ServiceTier;
+  /**
+   * Where `maxLength` came from.
+   *
+   * - `documented` the vendor states it
+   * - `measured`   observed empirically or read out of their source
+   * - `assumed`    no evidence; a conservative floor (the default when absent)
+   *
+   * Recorded separately from the parameter's own tier, because a service can
+   * have a well-corroborated parameter and no published cap at all.
+   */
+  capSource?: 'documented' | 'measured' | 'assumed';
   /** ISO date these parameters were last checked. */
   verifiedOn: string;
   /** Why we believe the parameters are correct. */
@@ -96,6 +107,7 @@ const RAW_DEFINITIONS = [
     url: 'https://claude.ai/new',
     param: 'q',
     maxLength: 14000,
+    capSource: 'documented',
     autoSubmit: false,
     color: '#cc9b7a',
     tier: 'verified',
@@ -125,6 +137,7 @@ const RAW_DEFINITIONS = [
     url: 'https://grok.com/',
     param: 'q',
     maxLength: 7500,
+    capSource: 'measured',
     autoSubmit: true,
     color: '#000000',
     tier: 'verified',
@@ -164,6 +177,7 @@ const RAW_DEFINITIONS = [
     url: 'https://chat.mistral.ai/chat',
     param: 'q',
     maxLength: 13350,
+    capSource: 'measured',
     autoSubmit: false,
     color: '#ff7000',
     tier: 'verified',
@@ -189,6 +203,7 @@ const RAW_DEFINITIONS = [
     url: 'https://huggingface.co/chat',
     param: 'q',
     maxLength: 10000,
+    capSource: 'documented',
     autoSubmit: true,
     color: '#ff9d00',
     tier: 'verified',
@@ -206,6 +221,7 @@ const RAW_DEFINITIONS = [
     param: 'q',
     extraParams: { bang: 'true', prompt: '1' },
     maxLength: 11000,
+    capSource: 'measured',
     autoSubmit: true,
     color: '#de5833',
     tier: 'verified',
@@ -257,6 +273,7 @@ const RAW_DEFINITIONS = [
     url: 'https://cursor.com/link/prompt',
     param: 'text',
     maxLength: 8000,
+    capSource: 'documented',
     autoSubmit: false,
     color: '#000000',
     tier: 'verified',
@@ -264,10 +281,6 @@ const RAW_DEFINITIONS = [
     note: 'Hands off to the desktop editor rather than a web chat. Explicitly never submits.',
   },
 
-  // ---------------------------------------------------------------------------
-  // Experimental: single-source parameters. Excluded from `'all'`; name them
-  // explicitly to opt in.
-  // ---------------------------------------------------------------------------
   {
     id: 'aistudio',
     name: 'Google AI Studio',
@@ -275,13 +288,17 @@ const RAW_DEFINITIONS = [
     url: 'https://aistudio.google.com/prompts/new_chat',
     param: 'prompt',
     maxLength: 12000,
+    capSource: 'assumed',
     autoSubmit: false,
     color: '#4285f4',
-    tier: 'experimental',
+    tier: 'verified',
     verifiedOn: VERIFIED_ON,
+    source: 'Google DeepMind DevRel announcement 2025-11-04; Mintlify contextual menu',
     note:
-      'Uses `prompt`, not `q`. Support appears to have been added around November ' +
-      '2025; older sources reporting no prefill support are stale.',
+      'Uses `prompt`, not `q`. Announced by Google DevRel in November 2025 but never ' +
+      'formally documented, so this is the thinnest evidence of any verified entry. ' +
+      'Fills the composer only — auto-submit remains an open feature request. Not to ' +
+      'be confused with the Build surface at /apps, which takes its own parameters.',
   },
   {
     id: 'github-copilot',
@@ -290,11 +307,16 @@ const RAW_DEFINITIONS = [
     url: 'https://github.com/copilot',
     param: 'prompt',
     maxLength: 12000,
+    capSource: 'assumed',
     autoSubmit: false,
     color: '#0078d4',
-    tier: 'experimental',
+    tier: 'verified',
     verifiedOn: VERIFIED_ON,
-    note: 'Distinct from Microsoft Copilot, which removed prefill entirely.',
+    source: "github/docs production source, four call sites plus a test; GitHub changelog 2025-12-17",
+    note:
+      'Uses `prompt`; `q` does not work — a widely-cited community thread concluding ' +
+      'that prefill is impossible had used `q`. Distinct from Microsoft Copilot, which ' +
+      'removed prefill entirely. Auto-submit is unconfirmed, so we assume it does not.',
   },
   {
     id: 'v0',
@@ -303,10 +325,15 @@ const RAW_DEFINITIONS = [
     url: 'https://v0.app',
     param: 'q',
     maxLength: 12000,
-    autoSubmit: false,
+    capSource: 'assumed',
+    autoSubmit: true,
     color: '#000000',
-    tier: 'experimental',
+    tier: 'verified',
     verifiedOn: VERIFIED_ON,
+    source: 'vercel/ai-elements, Vercel’s own source; Vercel Community thread 24457',
+    note:
+      'Submits on arrival with no opt-out. v0.dev redirects to v0.app preserving the ' +
+      'query string, so either host works; we use the canonical one.',
   },
   {
     id: 'scira',
@@ -315,10 +342,15 @@ const RAW_DEFINITIONS = [
     url: 'https://scira.ai/',
     param: 'q',
     maxLength: 12000,
-    autoSubmit: false,
+    capSource: 'assumed',
+    autoSubmit: true,
     color: '#0f172a',
-    tier: 'experimental',
+    tier: 'verified',
     verifiedOn: VERIFIED_ON,
+    source: 'zaidmukaddam/scira source and README',
+    note:
+      'Submits on arrival — confirmed by reading the vendor source, not inferred. ' +
+      '`query` is an equivalent alias for `q`.',
   },
 
   // ---------------------------------------------------------------------------

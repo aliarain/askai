@@ -93,4 +93,35 @@ describe('known-bad parameters stay fixed', () => {
   it('keeps Microsoft Copilot deprecated: prefill was removed in 2025', () => {
     expect(byId('copilot').tier).toBe('deprecated');
   });
+
+  it('sends GitHub Copilot `prompt`; `q` is the parameter that does not work', () => {
+    expect(byId('github-copilot').param).toBe('prompt');
+  });
+
+  it('marks v0 and Scira as auto-submitting, both confirmed from vendor source', () => {
+    expect(byId('v0').autoSubmit).toBe(true);
+    expect(byId('scira').autoSubmit).toBe(true);
+  });
+
+  it('does not claim AI Studio auto-submits — it fills the composer only', () => {
+    expect(byId('aistudio').autoSubmit).toBe(false);
+  });
+});
+
+describe('evidence is recorded, not implied', () => {
+  it('cites a source for every verified service whose parameter was contested', () => {
+    for (const id of ['chatgpt', 'claude', 'aistudio', 'github-copilot', 'v0', 'scira']) {
+      const def = SERVICE_DEFINITIONS.find((s) => s.id === id)!;
+      expect(def.source, `${id} needs its evidence recorded`).toBeTruthy();
+    }
+  });
+
+  it('never labels an undocumented cap as documented', () => {
+    // A cap we invented must not masquerade as one the vendor published.
+    for (const s of SERVICE_DEFINITIONS) {
+      if (s.capSource === 'documented') {
+        expect(s.source ?? s.note, `${s.id} claims a documented cap`).toBeTruthy();
+      }
+    }
+  });
 });
