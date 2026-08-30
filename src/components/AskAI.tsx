@@ -1,23 +1,37 @@
 'use client';
 
 import * as React from 'react';
-import {
-  buildPrompt,
-  VERIFIED_SERVICE_IDS,
-  DEFAULT_SERVICE_IDS,
-  type AiService,
-  type CreatePromptOptions,
-  type PromptContent,
-  type PromptResult,
+import type {
+  AiService,
+  CreatePromptOptions,
+  PromptContent,
+  PromptResult,
 } from '../core';
+import { useAskAI } from './useAskAI';
 import {
   CheckIcon,
   ChevronDownIcon,
   CopyIcon,
-  ExternalIcon,
   getIcon,
   type ServiceIcons,
 } from './icons';
+
+/** The styleable parts of the control. */
+export interface AskAIClassNames {
+  root?: string;
+  group?: string;
+  copyButton?: string;
+  trigger?: string;
+  divider?: string;
+  caret?: string;
+  menu?: string;
+  item?: string;
+  itemLabel?: string;
+  itemHint?: string;
+  icon?: string;
+  separator?: string;
+  footer?: string;
+}
 
 export interface AskAIProps {
   /** What you want the AI to do, e.g. "Explain this function". */
@@ -25,20 +39,32 @@ export interface AskAIProps {
   /** The content to send. */
   content: PromptContent;
   /**
-   * Destinations to offer.
-   *
-   * `'default'` (the default) is a short curated set. `'all'` is every verified
-   * destination. Experimental ones must be named explicitly.
+   * Destinations to offer. `'default'` is a short curated set, `'all'` is
+   * every verified destination.
    */
   services?: AiService[] | 'all' | 'default';
   /** Label on the primary half. */
   label?: string;
-  /** Custom icons per service. None ship by default; see `icons.tsx`. */
+  /** Label shown for two seconds after a successful copy. */
+  copiedLabel?: string;
+  /** Custom icons per service. See `@raptrx/askai/logos` for vendor marks. */
   icons?: ServiceIcons;
   /** Force a colour scheme instead of following the system. */
   theme?: 'light' | 'dark' | 'auto';
   /** Which edge the menu aligns to. */
   align?: 'start' | 'end';
+  /**
+   * Drop every built-in class name, keeping only behaviour, ARIA and your own
+   * classes. Use with `classNames` to render the control entirely in your own
+   * design system — Tailwind, CSS modules, whatever you already have.
+   *
+   * You do not need the stylesheet in this mode.
+   */
+  unstyled?: boolean;
+  /** Per-part class names, merged after the built-in ones. */
+  classNames?: AskAIClassNames;
+  /** Hide the explanatory line under the menu. */
+  hideFooter?: boolean;
   /** Prompt-building options, forwarded to the core builder. */
   options?: CreatePromptOptions;
   /** Called after the prompt is copied. */
@@ -49,36 +75,9 @@ export interface AskAIProps {
   style?: React.CSSProperties;
 }
 
-function resolveServices(services: AskAIProps['services']): AiService[] {
-  if (services === 'all') return [...VERIFIED_SERVICE_IDS];
-  if (services === undefined || services === 'default') return [...DEFAULT_SERVICE_IDS];
-  return services;
-}
-
-async function copyText(text: string): Promise<boolean> {
-  try {
-    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch {
-    // Clipboard API rejects without a transient user activation, or when the
-    // document is not focused. Fall through to the legacy path.
-  }
-  try {
-    const el = document.createElement('textarea');
-    el.value = text;
-    el.setAttribute('readonly', '');
-    el.style.position = 'fixed';
-    el.style.opacity = '0';
-    document.body.appendChild(el);
-    el.select();
-    const ok = document.execCommand('copy');
-    document.body.removeChild(el);
-    return ok;
-  } catch {
-    return false;
-  }
+/** Join the built-in class with the consumer's, honouring `unstyled`. */
+function cx(builtIn: string | undefined, custom: string | undefined, unstyled: boolean) {
+  return [unstyled ? undefined : builtIn, custom].filter(Boolean).join(' ') || undefined;
 }
 
 /**
@@ -91,221 +90,105 @@ async function copyText(text: string): Promise<boolean> {
  * Menu entries are real anchors, so middle-click, Cmd-click and "copy link
  * address" all behave. Nothing here promises one-click execution: most
  * destinations fill the composer and wait for the user to press Enter, and the
- * menu says so.
+ * menu says which do which.
+ *
+ * To restyle it, in increasing order of control: override the CSS custom
+ * properties, pass `classNames` per part, set `unstyled` and bring your own
+ * classes, or drop to {@link useAskAI} and render your own markup.
  */
 export const AskAI: React.FC<AskAIProps> = ({
   goal,
   content,
   services,
   label = 'Copy prompt',
+  copiedLabel = 'Copied',
   icons,
   theme = 'auto',
   align = 'end',
+  unstyled = false,
+  classNames: cn = {},
+  hideFooter = false,
   options,
   onCopy,
   onOpen,
   className,
   style,
 }) => {
-  const [open, setOpen] = React.useState(false);
-  const [copied, setCopied] = React.useState(false);
-  const [activeIndex, setActiveIndex] = React.useState(-1);
-
-  const rootRef = React.useRef<HTMLDivElement>(null);
-  const triggerRef = React.useRef<HTMLButtonElement>(null);
-  const itemRefs = React.useRef<(HTMLAnchorElement | null)[]>([]);
-  const menuId = React.useId();
-
-  const ids = React.useMemo(() => resolveServices(services), [services]);
-
-  // The plain prompt, used by the copy action. Built against the destination
-  // with the largest budget so copying is never truncated on a menu's behalf.
-  const prompt = React.useMemo(() => {
-    const { url } = buildPrompt(goal, content, ids[0] ?? 'chatgpt', options);
-    const param = new URL(url).searchParams;
-    return [...param.values()].reduce((a, b) => (b.length > a.length ? b : a), '');
-  }, [goal, content, ids, options]);
-
-  const results = React.useMemo<PromptResult[]>(() => {
-    return ids.flatMap((id) => {
-      try {
-        return [buildPrompt(goal, content, id, options)];
-      } catch {
-        // A deprecated or unknown id should not take the whole control down.
-        return [];
-      }
-    });
-  }, [ids, goal, content, options]);
-
-  // Reset the transient "Copied" affordance.
-  React.useEffect(() => {
-    if (!copied) return;
-    const t = setTimeout(() => setCopied(false), 2000);
-    return () => clearTimeout(t);
-  }, [copied]);
-
-  // Close on outside pointer press.
-  React.useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    return () => document.removeEventListener('pointerdown', onPointerDown);
-  }, [open]);
-
-  // Move DOM focus to follow the active item.
-  React.useEffect(() => {
-    if (open && activeIndex >= 0) itemRefs.current[activeIndex]?.focus();
-  }, [open, activeIndex]);
-
-  const close = React.useCallback((restoreFocus = true) => {
-    setOpen(false);
-    setActiveIndex(-1);
-    if (restoreFocus) triggerRef.current?.focus();
-  }, []);
-
-  const handleCopy = React.useCallback(async () => {
-    const ok = await copyText(prompt);
-    if (ok) {
-      setCopied(true);
-      onCopy?.(prompt);
-    }
-  }, [prompt, onCopy]);
-
-  const onMenuKeyDown = (e: React.KeyboardEvent) => {
-    switch (e.key) {
-      case 'Escape':
-        e.preventDefault();
-        close();
-        break;
-      case 'ArrowDown':
-        e.preventDefault();
-        setActiveIndex((i) => (i + 1) % results.length);
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setActiveIndex((i) => (i - 1 + results.length) % results.length);
-        break;
-      case 'Home':
-        e.preventDefault();
-        setActiveIndex(0);
-        break;
-      case 'End':
-        e.preventDefault();
-        setActiveIndex(results.length - 1);
-        break;
-      case 'Tab':
-        // Tab leaves the widget entirely, per the menu button pattern.
-        close(false);
-        break;
-    }
-  };
-
-  const onTriggerKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      setOpen(true);
-      setActiveIndex(0);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setOpen(true);
-      setActiveIndex(results.length - 1);
-    }
-  };
-
-  const CopyGlyph = copied ? CheckIcon : CopyIcon;
+  const ai = useAskAI({ goal, content, services, options, onCopy, onOpen });
+  const CopyGlyph = ai.copied ? CheckIcon : CopyIcon;
 
   return (
     <div
-      ref={rootRef}
-      className={['askai', className].filter(Boolean).join(' ')}
+      {...ai.getRootProps()}
+      className={cx('askai', [cn.root, className].filter(Boolean).join(' '), unstyled)}
       data-theme={theme === 'auto' ? undefined : theme}
       style={style}
     >
-      <div className="askai-group">
+      <div className={cx('askai-group', cn.group, unstyled)}>
         <button
-          type="button"
-          className="askai-btn askai-btn--primary"
-          onClick={handleCopy}
+          {...ai.getCopyButtonProps()}
+          className={cx('askai-btn askai-btn--primary', cn.copyButton, unstyled)}
         >
-          <CopyGlyph className="askai-icon" />
+          <CopyGlyph className={cx('askai-icon', cn.icon, unstyled)} />
           {/* The label changes as well as the icon, so the state is never
               carried by the glyph alone. */}
-          <span>{copied ? 'Copied' : label}</span>
+          <span>{ai.copied ? copiedLabel : label}</span>
         </button>
 
-        <div className="askai-divider" aria-hidden="true" />
+        <div className={cx('askai-divider', cn.divider, unstyled)} aria-hidden="true" />
 
         <button
-          ref={triggerRef}
-          type="button"
-          className="askai-btn askai-btn--trigger"
-          aria-haspopup="menu"
-          aria-expanded={open}
-          aria-controls={open ? menuId : undefined}
-          aria-label="Send to an AI assistant"
-          onClick={() => {
-            setOpen((v) => !v);
-            setActiveIndex(-1);
-          }}
-          onKeyDown={onTriggerKeyDown}
+          {...ai.getTriggerProps()}
+          className={cx('askai-btn askai-btn--trigger', cn.trigger, unstyled)}
         >
-          <ChevronDownIcon className="askai-icon askai-caret" />
+          <ChevronDownIcon
+            className={cx('askai-icon askai-caret', cn.caret, unstyled)}
+          />
         </button>
       </div>
 
-      {open && (
+      {ai.isOpen && (
         <ul
-          id={menuId}
-          role="menu"
-          className="askai-menu"
+          {...ai.getMenuProps()}
+          className={cx('askai-menu', cn.menu, unstyled)}
           data-align={align}
-          aria-label="AI destinations"
-          onKeyDown={onMenuKeyDown}
         >
-          {results.map((result, i) => {
+          {ai.destinations.map((result, i) => {
             const Icon = getIcon(String(result.service), icons);
+            const { key, ...itemProps } = ai.getItemProps(i);
             return (
-              <li key={String(result.service)} role="none">
+              <li key={key} role="none">
                 <a
-                  ref={(el) => {
-                    itemRefs.current[i] = el;
-                  }}
-                  role="menuitem"
-                  className="askai-item"
-                  data-active={activeIndex === i || undefined}
-                  href={result.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  tabIndex={activeIndex === i ? 0 : -1}
-                  onMouseEnter={() => setActiveIndex(i)}
-                  onClick={() => {
-                    onOpen?.(result);
-                    close(false);
-                  }}
+                  {...itemProps}
+                  className={cx('askai-item', cn.item, unstyled)}
+                  data-active={ai.activeIndex === i || undefined}
                 >
-                  <Icon className="askai-icon" />
-                  <span className="askai-item-label">{result.name}</span>
-                  <span className="askai-item-hint">
+                  <Icon className={cx('askai-icon', cn.icon, unstyled)} />
+                  <span className={cx('askai-item-label', cn.itemLabel, unstyled)}>
+                    {result.name}
+                  </span>
+                  <span className={cx('askai-item-hint', cn.itemHint, unstyled)}>
                     {result.autoSubmit ? 'Runs' : 'Ready'}
                   </span>
                   {result.truncated && (
-                    <span className="askai-sr">
-                      {`Content shortened by ${result.droppedChars} characters to fit ${result.name}. Use Copy prompt to send all of it.`}
+                    <span className={unstyled ? undefined : 'askai-sr'}>
+                      {`Content shortened by ${result.droppedChars} characters to fit ${result.name}. Use ${label} to send all of it.`}
                     </span>
                   )}
                 </a>
               </li>
             );
           })}
-          <li role="none">
-            <hr className="askai-sep" />
-          </li>
-          <li role="none" className="askai-section">
-            <ExternalIcon className="askai-icon" style={{ verticalAlign: '-2px' }} />{' '}
-            Opens in a new tab. &ldquo;Ready&rdquo; means press Enter to send.
-          </li>
+          {!hideFooter && (
+            <>
+              <li role="none">
+                <hr className={cx('askai-sep', cn.separator, unstyled)} />
+              </li>
+              <li role="none" className={cx('askai-section', cn.footer, unstyled)}>
+                Opens in a new tab. &ldquo;Ready&rdquo; means press Enter to send.
+              </li>
+            </>
+          )}
         </ul>
       )}
     </div>
