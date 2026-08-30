@@ -126,15 +126,25 @@ registry.add('acme', {
 
 Use `createRegistry()` rather than the global `addService()` anywhere requests share a process — the global registry is shared across every request, so one tenant's destination would leak into another's.
 
-## No vendor logos
+## Logos
 
-This package ships none, deliberately. Every vendor's brand guidelines require their mark be used exactly as supplied, and most prohibit recolouring it or pairing it with third-party UI — which is exactly what a `currentColor` logo inside someone else's button does. A library that bundled marks would push that exposure onto every consumer.
-
-Destinations are identified by name and a neutral glyph. If you have cleared a mark for your own product, pass it in:
+Destinations use a neutral glyph by default. Brand marks are one import away:
 
 ```tsx
-<AskAI icons={{ chatgpt: MyClearedMark }} … />
+import { logos } from '@raptrx/askai/logos';
+
+<AskAI icons={logos} goal="Explain this" content={code} />
 ```
+
+Seven vendors ship their real mark — OpenAI, Claude, Grok, Perplexity, Mistral, Qwen and Z.ai — reproduced exactly as supplied, with their own colours. The rest get a monogram in their brand colour, because an approximated logo is worse than none: it is visibly wrong, and an altered mark is the thing vendors most clearly prohibit. Nothing here is redrawn or recoloured.
+
+You can also supply your own per service:
+
+```tsx
+<AskAI icons={{ ...logos, chatgpt: MyOwnMark }} … />
+```
+
+They sit behind a subpath rather than the package root on purpose. Using a third party's trademark in your product is your decision, not a default you inherit — most vendors require the mark be unaltered and several require written permission, so check their brand guidelines before shipping.
 
 ## CLI — own the code instead
 

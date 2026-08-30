@@ -56,7 +56,7 @@ Two things matter most:
 
 **Do not pass huge content and assume it arrives.** Destinations cap between 7,500 and 16,000 characters. For anything long, let the user copy instead — that is what the primary button is for. If you need to know, check `buildPrompt(...).truncated`.
 
-**Do not add vendor logos.** The package ships none on purpose; see the README. If the user explicitly wants them and has cleared it, pass them via the `icons` prop.
+**Logos are opt-in, not default.** Add them with `import { logos } from '@raptrx/askai/logos'` and pass `icons={logos}`. Never hand-draw a mark to fill a gap — the eleven destinations without a real logo intentionally use a monogram, and an approximated mark is both visibly wrong and the thing vendors most clearly prohibit.
 
 **Do not hand-write the URLs.** `chatgpt.com/?q=` looks like it works and is the fragile path; `?prompt=` is the stable one. The registry exists precisely so nobody has to remember this.
 
