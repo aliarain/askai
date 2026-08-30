@@ -173,6 +173,12 @@ const RAW_DEFINITIONS = [
     color: '#4d6bfe',
     tier: 'verified',
     verifiedOn: VERIFIED_ON,
+    source: 'DeepSeek production bundle, prefill parser read directly',
+    note:
+      'Two silent-failure modes, both confirmed in their bundle: the prefill is ' +
+      'honoured only on the root path, and only when a user token is present — a ' +
+      'logged-out visitor gets an empty composer with no error. `prompt` is an ' +
+      'accepted alias for `q`.',
   },
   {
     id: 'mistral',
@@ -255,7 +261,11 @@ const RAW_DEFINITIONS = [
     color: '#3b82f6',
     tier: 'verified',
     verifiedOn: VERIFIED_ON,
-    note: 'Submits on arrival with no opt-out.',
+    source: 'Z.ai production bundle',
+    note:
+      'Submits on arrival with no opt-out — treat this as fragile. Z.ai is an Open ' +
+      'WebUI fork forked before upstream added a `submit=false` escape hatch, which ' +
+      'their bundle still lacks. A rebase would silently make autoSubmit wrong here.',
   },
   {
     id: 'kimi',
@@ -281,6 +291,10 @@ const RAW_DEFINITIONS = [
     color: '#615ced',
     tier: 'verified',
     verifiedOn: VERIFIED_ON,
+    source: 'Qwen production bundle',
+    note:
+      'The parameter is `text` — neither `q` nor `prompt` appears anywhere in their ' +
+      'bundle. Honoured only on the root path, and fills without sending.',
   },
   {
     id: 'cursor',
@@ -289,7 +303,7 @@ const RAW_DEFINITIONS = [
     url: 'https://cursor.com/link/prompt',
     param: 'text',
     maxLength: 5000,
-    capSource: 'documented',
+    capSource: 'assumed',
     autoSubmit: false,
     color: '#000000',
     tier: 'verified',

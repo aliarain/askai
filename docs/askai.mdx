@@ -1,0 +1,412 @@
+---
+$schema: https://holocron.so/frontmatter.json
+title: askai
+sidebarTitle: askai
+description: Send anything on your page to ChatGPT, Claude, Perplexity or Grok — with deep links that are actually verified.
+icon: "lucide:sparkles"
+---
+
+<Note>
+  **v2.0 is a breaking release.** Six of the ten destinations in 1.x were sending
+  parameters that no longer worked. If you are upgrading, read
+  [What changed in 2.0](#what-changed-in-2-0) first.
+</Note>
+
+## The problem
+
+Every AI vendor accepts a prompt in a URL. None of them document it, none of them
+promise it will keep working, and they change it without notice.
+
+So most published "Ask AI" buttons are quietly broken. The tab still opens — it
+just opens empty, and your user blames your product. Six of the ten destinations
+this package itself shipped in 1.x were wrong:
+
+| Destination | What was wrong |
+| --- | --- |
+| Gemini | Takes prompts over an HTTP header the browser sets, not a URL parameter. A link can't set headers, so `?q=` was always inert. |
+| Microsoft Copilot | Prefill regressed in late 2025 and was never restored. |
+| ChatGPT | `?q=` only reaches the composer via a fallback redirect. `?prompt=` is stable. |
+| Google AI Studio | Uses `?prompt=`, not `?q=`. |
+| Perplexity | Needs `/search/new`, not `/search`. |
+| Claude | Real cap is ~14,000 characters, not the 100,000 claimed. |
+
+## Install
+
+<CodeGroup>
+```bash npm
+npm i @raptrx/askai
+```
+
+```bash pnpm
+pnpm add @raptrx/askai
+```
+
+```bash yarn
+yarn add @raptrx/askai
+```
+</CodeGroup>
+
+<Steps>
+  <Step title="Import the component and the stylesheet">
+    ```tsx
+    import { AskAI } from '@raptrx/askai/react';
+    import '@raptrx/askai/styles.css';
+    ```
+    The stylesheet import goes anywhere in your app, once. Skip it and the
+    control renders unstyled.
+  </Step>
+
+  <Step title="Drop it next to your content">
+    ```tsx
+    <AskAI goal="Explain this function" content={code} />
+    ```
+    `content` is the point — pass the actual code, error, article or record the
+    user is looking at, not a static string.
+  </Step>
+
+  <Step title="Check what it produces">
+    ```bash
+    npx @raptrx/askai list
+    ```
+    Prints every destination with its parameter, cap, tier, and whether it runs
+    the prompt or just fills the composer.
+  </Step>
+</Steps>
+
+## Why copy is the primary action
+
+The control is a split button: **Copy prompt** on the left, destinations behind
+the caret. That ordering is deliberate.
+
+Deep links are bounded by URL length — Claude cuts at ~14,000 characters, Grok
+at ~7,500, Cursor at ~5,000 of usable prose. Sending an AI half a function and
+letting it answer confidently about the wrong code is worse than sending
+nothing. Copying has no ceiling, so the primary action always works.
+
+When content has to be shortened to fit a link, the result says so instead of
+hiding it:
+
+```ts
+const result = buildPrompt('Review this', longFile, 'claude');
+
+result.truncated;    // true
+result.droppedChars; // 36114
+result.autoSubmit;   // false — Claude fills the composer, user presses Enter
+```
+
+<Warning>
+  **Never write copy that promises one-click.** Most destinations fill the
+  composer and wait for Enter. Every documented change in this space has removed
+  auto-submit, never prefill — a link on someone else's page must not make a
+  logged-in assistant execute a prompt. Use `result.autoSubmit` to label
+  honestly; the built-in menu already does.
+</Warning>
+
+## Components
+
+<CardGroup cols={2}>
+  <Card title="AskAI" icon="lucide:square-chevron-down">
+    The split button. Copy plus a menu of destinations, with full keyboard
+    support.
+  </Card>
+  <Card title="AskAILink" icon="lucide:link">
+    One destination as a plain anchor. No state, no client boundary — works in
+    a server component.
+  </Card>
+  <Card title="useAskAI" icon="lucide:code">
+    The behaviour with no markup. Bring your own design system.
+  </Card>
+  <Card title="buildPrompt" icon="lucide:terminal">
+    No React at all. Returns the URL plus truncation and submit metadata.
+  </Card>
+</CardGroup>
+
+### AskAI
+
+```tsx
+<AskAI
+  goal="Explain this function"
+  content={code}
+  services={['chatgpt', 'claude', 'perplexity']}
+/>
+```
+
+<ResponseField name="goal" type="string" required>
+  What you want the AI to do.
+</ResponseField>
+
+<ResponseField name="content" type="string | { text, language } | object" required>
+  What to send. Objects are serialised to fenced JSON; a `language` hint forces
+  a code fence.
+</ResponseField>
+
+<ResponseField name="services" type="string[] | 'default' | 'all'" default="'default'">
+  `'default'` is a short curated set. `'all'` is every verified destination.
+</ResponseField>
+
+<ResponseField name="label" type="string" default="'Copy prompt'">
+  Primary button label.
+</ResponseField>
+
+<ResponseField name="theme" type="'light' | 'dark' | 'auto'" default="'auto'">
+  Follows the system unless forced.
+</ResponseField>
+
+<ResponseField name="unstyled" type="boolean" default="false">
+  Drops every built-in class. See [Matching your design system](#matching-your-design-system).
+</ResponseField>
+
+<ResponseField name="classNames" type="AskAIClassNames">
+  Per-part class overrides: `root`, `group`, `copyButton`, `trigger`, `menu`,
+  `item`, `itemLabel`, `itemHint`, `icon`, `divider`, `caret`, `separator`,
+  `footer`.
+</ResponseField>
+
+<ResponseField name="icons" type="Record<string, Component>">
+  Custom icon per service. See [Logos](#logos).
+</ResponseField>
+
+<ResponseField name="onCopy / onOpen" type="function">
+  Analytics hooks. `onOpen` receives the full result including `autoSubmit` and
+  `truncated`.
+</ResponseField>
+
+### AskAILink
+
+```tsx
+<AskAILink service="claude" goal="Review this" content={code}>
+  Ask Claude
+</AskAILink>
+```
+
+Renders a plain `<a>`. Because it is a real link, middle-click, Cmd-click,
+"open in new tab" and "copy link address" all behave — none of which work when
+a button calls `window.open`. It has no state or effects, so it needs no
+`'use client'` boundary.
+
+## Matching your design system
+
+The button should look like *your* product, not like this library. Four levels,
+in increasing order of control.
+
+<AccordionGroup>
+  <Accordion title="1. Retheme with CSS custom properties">
+    Everything is driven by custom properties, so you can retheme without
+    overriding a single rule.
+
+    ```css
+    .askai {
+      --askai-bg: var(--my-surface);
+      --askai-fg: var(--my-text);
+      --askai-border: var(--my-border);
+      --askai-focus: var(--my-ring);
+      --askai-radius: 4px;
+      --askai-duration: 100ms;
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="2. Override individual parts">
+    ```tsx
+    <AskAI
+      goal="Explain this"
+      content={code}
+      classNames={{
+        copyButton: 'my-btn my-btn--ghost',
+        menu: 'my-popover',
+        item: 'my-menu-item',
+      }}
+    />
+    ```
+    Your classes are merged after the built-ins, so they win.
+  </Accordion>
+
+  <Accordion title="3. Go fully unstyled">
+    ```tsx
+    <AskAI
+      goal="Explain this"
+      content={code}
+      unstyled
+      classNames={{
+        root: 'relative inline-flex',
+        group: 'inline-flex rounded-md border border-zinc-200 dark:border-zinc-800',
+        copyButton: 'px-3 py-1.5 text-sm font-medium hover:bg-zinc-50',
+        trigger: 'px-2 border-l border-zinc-200 hover:bg-zinc-50',
+        menu: 'absolute right-0 top-full mt-1 min-w-48 rounded-md border bg-white p-1 shadow-lg',
+        item: 'flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-zinc-100',
+      }}
+    />
+    ```
+    No `askai-*` class is emitted and you do not need the stylesheet. The ARIA
+    and keyboard behaviour stay.
+  </Accordion>
+
+  <Accordion title="4. Render it yourself with useAskAI">
+    When the component can't bend far enough, take the behaviour and write your
+    own markup. You keep prompt assembly, clipboard handling and the full
+    menu-button keyboard pattern.
+
+    ```tsx
+    import { useAskAI } from '@raptrx/askai/react';
+
+    function MyAskAI({ code }) {
+      const ai = useAskAI({ goal: 'Explain this', content: code });
+
+      return (
+        <div {...ai.getRootProps()}>
+          <MyButton {...ai.getCopyButtonProps()}>
+            {ai.copied ? 'Copied' : 'Copy'}
+          </MyButton>
+          <MyButton {...ai.getTriggerProps()}>▾</MyButton>
+
+          {ai.isOpen && (
+            <MyMenu {...ai.getMenuProps()}>
+              {ai.destinations.map((d, i) => (
+                <MyMenuItem {...ai.getItemProps(i)}>
+                  {d.name}
+                  <small>{d.autoSubmit ? 'Runs' : 'Ready'}</small>
+                </MyMenuItem>
+              ))}
+            </MyMenu>
+          )}
+        </div>
+      );
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Destinations
+
+Eighteen verified, two deprecated. Run `npx @raptrx/askai list` for the live
+table.
+
+| Destination | Parameter | Cap | On arrival |
+| --- | --- | --- | --- |
+| ChatGPT | `prompt` | 16,000 | fills |
+| Claude | `q` | 14,000 <sup>documented</sup> | fills |
+| Perplexity | `q` | 12,000 | runs |
+| Grok | `q` | 7,500 <sup>measured</sup> | runs |
+| Kagi Assistant | `q` | 8,000 <sup>measured</sup> | runs |
+| DeepSeek | `q` | 12,000 | fills |
+| Le Chat | `q` | 10,000 | fills |
+| T3 Chat | `q` | 12,000 | runs |
+| HuggingChat | `q` | 8,000 <sup>measured</sup> | runs |
+| Duck.ai | `q` | 12,000 <sup>measured</sup> | runs |
+| Z.ai | `q` | 12,000 | runs |
+| Kimi | `prefill_prompt` | 12,000 | fills |
+| Qwen Chat | `text` | 12,000 | fills |
+| Cursor | `text` | 5,000 | fills |
+| Google AI Studio | `prompt` | 12,000 | fills |
+| GitHub Copilot | `prompt` | 12,000 | fills |
+| v0 | `q` | 12,000 | **runs** |
+| Scira | `q` | 12,000 | **runs** |
+
+Caps are labelled by provenance. `documented` means the vendor publishes it,
+`measured` means we observed it, and an unlabelled figure is a conservative
+floor we chose because no evidence exists. The registry never presents a guess
+as a fact.
+
+<Warning>
+  **Gemini and Microsoft Copilot are deprecated and will throw.** Gemini accepts
+  prompts only over an HTTP header the browser sets from its own address bar —
+  a hyperlink cannot set headers, so `?q=` opens an empty chat. Microsoft
+  Copilot's prefill regressed in late 2025 and was never restored. Both are kept
+  in the registry so you get a clear error instead of a silently empty tab. For
+  a Google model, use `aistudio`.
+</Warning>
+
+## Bring your own AI
+
+Most companies with an assistant have their own. That's a first-class case:
+
+```ts
+import { createRegistry } from '@raptrx/askai';
+
+const registry = createRegistry();
+registry.add('acme', {
+  name: 'Acme AI',
+  url: 'https://ai.acme.internal/chat',
+  param: 'prompt',
+});
+```
+
+<Tip>
+  Use `createRegistry()` rather than the global `addService()` anywhere requests
+  share a process. The global registry is process-wide, so one tenant's
+  destination would leak into another's request.
+</Tip>
+
+## Logos
+
+Neutral glyphs by default. Brand marks are one import away:
+
+```tsx
+import { logos } from '@raptrx/askai/logos';
+
+<AskAI icons={logos} goal="Explain this" content={code} />
+```
+
+Seven vendors ship their real mark — OpenAI, Claude, Grok, Perplexity, Mistral,
+Qwen and Z.ai — reproduced exactly as supplied, in their own colours. The rest
+use a monogram in their brand colour, because an approximated logo is worse
+than none: visibly wrong, and an altered mark is what vendors most clearly
+prohibit.
+
+<Note>
+  Logos sit behind a subpath rather than the package root on purpose. Using a
+  third party's trademark is your product's decision, not a default you inherit.
+  Most vendors require the mark be unaltered and several require written
+  permission — check their brand guidelines before shipping.
+</Note>
+
+## CLI
+
+Prefer to own the code, shadcn-style?
+
+```bash
+npx @raptrx/askai init
+```
+
+Generates `core.ts`, `AskAiButton.tsx` and `AskAiLink.tsx` containing only the
+destinations you pick, with verified parameters baked in. The generated output
+is compiled under strict TypeScript by this repo's test suite on every commit.
+
+## What changed in 2.0
+
+<AccordionGroup>
+  <Accordion title="Destinations">
+    - `gemini` and `copilot` now **throw** instead of opening an empty chat.
+    - `chatgpt` and `aistudio` moved to `?prompt=`.
+    - `perplexity` moved to `/search/new`.
+    - `claude` cap corrected to 14,000.
+    - Ten destinations added; every entry now carries a tier and a verification date.
+  </Accordion>
+
+  <Accordion title="API">
+    - `buildPrompt()` returns truncation and auto-submit metadata. Truncation is never silent.
+    - `createRegistry()` replaces global mutation for server use.
+    - `suggestService()` removed — its heuristics were arbitrary.
+    - `options.model` removed; Claude and Gemini never supported it.
+    - The 1.x `ServiceConfig` shape is still accepted by `addService()`.
+  </Accordion>
+
+  <Accordion title="React">
+    - `AiButton` / `AiButtonBar` → `AskAI` / `AskAILink`.
+    - Navigation uses real anchors, not `window.open`.
+    - `'use client'` now survives bundling — the 1.x React entry threw on first
+      render under the Next.js App Router.
+    - Styles moved to `@raptrx/askai/styles.css`.
+    - Vendor logos moved to `@raptrx/askai/logos`.
+  </Accordion>
+</AccordionGroup>
+
+## For coding agents
+
+The repository ships an `AGENTS.md` written for AI agents integrating this
+package. Point your agent at
+[github.com/aliarain/askai/blob/main/AGENTS.md](https://github.com/aliarain/askai/blob/main/AGENTS.md).
+
+The failure modes worth knowing: never promise one-click, never add Gemini or
+Microsoft Copilot, never hand-write the URLs, and check `truncated` before
+sending long content.
