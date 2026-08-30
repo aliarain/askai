@@ -31,8 +31,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "rollup -c",
-    "dev": "rollup -c -w",
+    "build": "rollup -c rollup.config.mjs",
+    "dev": "rollup -c rollup.config.mjs -w",
     "test": "vitest run",
     "test:watch": "vitest",
     "clean": "rm -rf dist",
