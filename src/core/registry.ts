@@ -151,12 +151,16 @@ const RAW_DEFINITIONS = [
     url: 'https://kagi.com/assistant',
     param: 'q',
     maxLength: 8000,
+    capSource: 'measured',
     autoSubmit: true,
     color: '#ffb319',
     tier: 'verified',
     verifiedOn: VERIFIED_ON,
-    source: 'Kagi documentation',
-    note: 'Kagi documents `qvalue` as the fill-without-submitting variant of `q`.',
+    source: 'help.kagi.com assistant docs, for the parameters only',
+    note:
+      'Kagi documents `q` (submits) and `qvalue` (fills without submitting), but no ' +
+      'URL cap — their published 100,000 is a per-message limit elsewhere in the ' +
+      'product. This budget is measured: the edge returns 414 near 8,160 characters.',
   },
   {
     id: 'deepseek',
@@ -176,13 +180,17 @@ const RAW_DEFINITIONS = [
     vendor: 'Mistral',
     url: 'https://chat.mistral.ai/chat',
     param: 'q',
-    maxLength: 13350,
-    capSource: 'measured',
+    maxLength: 10000,
+    capSource: 'assumed',
     autoSubmit: false,
     color: '#ff7000',
     tier: 'verified',
     verifiedOn: VERIFIED_ON,
-    note: 'Auto-submit behaviour unconfirmed, so we assume it does not.',
+    note:
+      'Mistral publishes no cap. The 13,350 figure circulating for Le Chat is ' +
+      "Firefox's own empirically tuned URL-length budget for this provider, not a " +
+      'vendor limit, so we do not repeat it as one. Auto-submit is unconfirmed; we ' +
+      'assume it does not.',
   },
   {
     id: 't3chat',
@@ -202,16 +210,19 @@ const RAW_DEFINITIONS = [
     vendor: 'Hugging Face',
     url: 'https://huggingface.co/chat',
     param: 'q',
-    maxLength: 10000,
-    capSource: 'documented',
+    maxLength: 8000,
+    capSource: 'measured',
     autoSubmit: true,
     color: '#ff9d00',
     tier: 'verified',
     verifiedOn: VERIFIED_ON,
-    source: 'chat-ui source',
+    source: 'chat-ui src/lib/utils/urlParams.ts; edge behaviour measured',
     note:
-      'Documented 10,000-character cap, above which the prompt is dropped entirely ' +
-      'rather than truncated. The `prompt` parameter fills without submitting.',
+      "chat-ui's own cap is 10,000 and it drops the prompt entirely rather than " +
+      'truncating, but the Hugging Face edge returns 414 at roughly 8,160 characters, ' +
+      'so the request dies before the app ever checks. We budget to the lower, real ' +
+      'limit. `?q=` also bounces logged-out users through login first. The `prompt` ' +
+      'parameter fills without submitting.',
   },
   {
     id: 'duckai',
@@ -220,13 +231,18 @@ const RAW_DEFINITIONS = [
     url: 'https://duck.ai/',
     param: 'q',
     extraParams: { bang: 'true', prompt: '1' },
-    maxLength: 11000,
+    maxLength: 12000,
     capSource: 'measured',
     autoSubmit: true,
     color: '#de5833',
     tier: 'verified',
     verifiedOn: VERIFIED_ON,
-    note: 'Submission is driven by `prompt=1`; without it the composer is only filled.',
+    source: 'DuckDuckGo client source, RealDuckChat',
+    note:
+      'Submission is driven by `prompt=1` — exactly the string "1"; `prompt=true` ' +
+      'does nothing. `bang=true` is not a submit flag: it overrides the heuristics ' +
+      'that would otherwise silently discard very short, single-word or blocklisted ' +
+      'prompts. Re-measured near 13,000 characters; we budget below that.',
   },
   {
     id: 'zai',
@@ -272,13 +288,17 @@ const RAW_DEFINITIONS = [
     vendor: 'Anysphere',
     url: 'https://cursor.com/link/prompt',
     param: 'text',
-    maxLength: 8000,
+    maxLength: 5000,
     capSource: 'documented',
     autoSubmit: false,
     color: '#000000',
     tier: 'verified',
     verifiedOn: VERIFIED_ON,
-    note: 'Hands off to the desktop editor rather than a web chat. Explicitly never submits.',
+    source: 'cursor.com/docs/reference/deeplinks',
+    note:
+      "Cursor's documented 8,000 is a whole-URL limit, not a budget for `text`. " +
+      'Percent-encoding roughly doubles prose, so we budget 5,000 characters of ' +
+      'content to stay inside it. Hands off to the desktop editor; never submits.',
   },
 
   {
@@ -369,9 +389,14 @@ const RAW_DEFINITIONS = [
     color: '#8e44ad',
     tier: 'deprecated',
     verifiedOn: VERIFIED_ON,
+    source: 'Chromium autocomplete_controller; Firefox GenAI.sys.mjs',
     note:
-      'The Gemini web app has never supported prompt prefill via URL. Any `?q=` ' +
-      'link opens an empty chat. Use `aistudio` to reach a Google model.',
+      'Gemini does accept a prompt — over an HTTP request header, not a URL ' +
+      'parameter. Chromium sends `X-Omnibox-Gemini` and Firefox `X-Firefox-Gemini`, ' +
+      'both only from the browser\'s own address bar. A hyperlink cannot set request ' +
+      'headers, so `?q=` from a link is inert and opens an empty chat. The ' +
+      '`gemini.google.com/app?q=` string in Chromium\'s search-engine list is what ' +
+      'misleads people into copying it. Use `aistudio` to reach a Google model.',
   },
   {
     id: 'copilot',
@@ -384,9 +409,14 @@ const RAW_DEFINITIONS = [
     color: '#0078d4',
     tier: 'deprecated',
     verifiedOn: VERIFIED_ON,
+    source: 'Microsoft Q&A regression reports; Varonis and SearchLeak disclosures',
     note:
-      'Prefill was removed in late 2025 following a prompt-injection vulnerability. ' +
-      'Use `github-copilot` for the GitHub product, which is unrelated.',
+      'Prefill regressed around November 2025 — `?q=` renders as a page heading and ' +
+      'leaves the composer empty — and Microsoft has neither documented nor restored ' +
+      'it. A series of prompt-injection disclosures against this parameter were ' +
+      'patched through 2026, including an undocumented `autorun=1` bypass closed in ' +
+      'August 2026, so a return is unlikely. Use `github-copilot` for the GitHub ' +
+      'product, which is unrelated.',
   },
 ] as const satisfies readonly ServiceDefinition[];
 
