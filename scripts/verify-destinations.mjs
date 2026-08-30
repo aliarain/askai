@@ -21,7 +21,7 @@
  *
  * Run: npm run verify:destinations
  */
-import { SERVICE_DEFINITIONS } from '../dist/index.mjs';
+import { SERVICE_DEFINITIONS, DEFAULT_MAX_ENCODED } from '../dist/index.mjs';
 
 const STRICT = process.argv.includes('--strict');
 const TIMEOUT_MS = 15_000;
@@ -111,20 +111,39 @@ for (const def of SERVICE_DEFINITIONS) {
     });
   }
 
-  if (limitInfo.limit !== null && def.maxLength > limitInfo.limit) {
+  // Compare like with like: the measured limit is in encoded bytes, so it
+  // belongs against maxEncoded. maxLength is a character budget the page
+  // applies after the request arrives, and the two are not interchangeable.
+  const budget = def.maxEncoded ?? DEFAULT_MAX_ENCODED;
+
+  if (limitInfo.limit !== null && budget > limitInfo.limit) {
     findings.push({
       id: def.id,
       level: 'error',
       msg:
-        `advertises ${def.maxLength} but the edge refuses above ~${limitInfo.limit}. ` +
+        `budgets ${budget} encoded bytes but the edge refuses above ~${limitInfo.limit}. ` +
         `Prompts between those numbers fail before the app sees them.`,
+    });
+  }
+
+  // Not a failure — the builder enforces both ceilings — but worth surfacing,
+  // since a character cap far above anything that could survive encoding is
+  // decorative and will mislead whoever reads the registry next.
+  if (limitInfo.limit !== null && def.maxLength > limitInfo.limit * 1.5) {
+    findings.push({
+      id: def.id,
+      level: 'info',
+      msg:
+        `maxLength ${def.maxLength} can never be reached: the transport ceiling is ` +
+        `~${limitInfo.limit} bytes, so encoding binds first for any realistic prompt.`,
     });
   }
 
   rows.push({
     service: def.id,
     base: base.status || 'blocked',
-    cap: def.maxLength,
+    chars: def.maxLength,
+    encoded: budget,
     measured: limitInfo.limit ?? '—',
     source: def.capSource ?? 'assumed',
   });
