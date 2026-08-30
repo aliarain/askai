@@ -20,7 +20,12 @@
       "require": "./dist/react.js"
     },
     "./styles.css": "./dist/styles.css",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./logos": {
+      "types": "./dist/logos.d.ts",
+      "import": "./dist/logos.mjs",
+      "require": "./dist/logos.js"
+    }
   },
   "files": [
     "dist"
@@ -33,7 +38,8 @@
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "test:coverage": "vitest run --coverage",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "npm run build && npm test",
+    "generate:logos": "node scripts/generate-logos.mjs"
   },
   "dependencies": {
     "picocolors": "^1.0.0",

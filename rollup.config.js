@@ -48,6 +48,16 @@ export default [
     },
     plugins: [typescript({ tsconfig: './tsconfig.build.json' }), copyStyles()],
   },
+  // Brand logos - opt-in subpath
+  {
+    input: 'src/brand.ts',
+    output: [
+      { file: 'dist/logos.mjs', format: 'esm', sourcemap: true },
+      { file: 'dist/logos.js', format: 'cjs', sourcemap: true },
+    ],
+    external,
+    plugins: [typescript({ tsconfig: './tsconfig.build.json' })],
+  },
   // CLI - CJS (for Node.js)
   {
     input: 'src/cli/index.ts',
@@ -70,6 +80,13 @@ export default [
   {
     input: 'src/react.ts',
     output: { file: 'dist/react.d.ts', format: 'esm' },
+    external,
+    plugins: [dts()],
+  },
+  // Brand logo types
+  {
+    input: 'src/brand.ts',
+    output: { file: 'dist/logos.d.ts', format: 'esm' },
     external,
     plugins: [dts()],
   },

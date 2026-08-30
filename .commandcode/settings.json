@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(npm:*)",
+      "Shell(npx vitest run 2 >& 1)",
+      "Shell(cd \"/Users/aliarain/Documents/Projects/raptrx:askai\" && ls -d node_modules dist 2>&1; echo \"--- agent ---\"; ls -R agent | head -20; echo \"--- wc README ---\"; wc -l README.md CHANGELOG.md; echo \"--- git log ---\"; git log --oneline -8)",
+      "Shell(./node_modules/.bin/vitest:*)",
+      "Shell(cd /private/tmp/commandcode-501/-Users-aliarain-Documents-Projects-raptrx-askai/f2390922-f24e-4b9a-850c-7e7d5d533cf7/scratchpad && sed -e 's/<div class=\"askai\">/<div class=\"askai\" data-theme=\"dark\">/g' -e 's/<div class=\"askai\" style/<div data-theme=\"dark\" class=\"askai\" style/g' -e 's/class=\"askai askai-link\"/class=\"askai askai-link\" data-theme=\"dark\"/g' -e 's/<body>/<body class=\"dark\">/' play.html > play-dark.html && grep -c 'data-theme=\"dark\"' play-dark.html && CHROME=\"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" && \"$CHROME\" --headless --disable-gpu --hide-scrollbars --force-device-scale-factor=2 --window-size=1240,2100 --screenshot=light.png \"file://$PWD/play.html\" 2>&1 | tail -2 && \"$CHROME\" --headless --disable-gpu --hide-scrollbars --force-device-scale-factor=2 --window-size=1240,2100 --screenshot=dark.png \"file://$PWD/play-dark.html\" 2>&1 | tail -2 && ls -la *.png)",
+      "Shell(open:*)"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}
