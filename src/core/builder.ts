@@ -6,6 +6,7 @@ import type {
 } from './types';
 import type { ServiceDefinition } from './registry';
 import { getService, VERIFIED_SERVICE_IDS, DEFAULT_SERVICE_IDS } from './services';
+import { DEFAULT_MAX_ENCODED } from './registry';
 
 /**
  * Heuristic: does this look like source code rather than prose?
@@ -111,22 +112,48 @@ export function buildPrompt(
   const wrap = (body: string) =>
     `${goal}\n\n${format === 'code' ? fence(body, lang) : body}`;
 
+  // Two independent ceilings, and the prompt must clear both.
+  //
+  //   maxLength   what the page will accept once the request arrives
+  //   maxEncoded  what the edge will accept at all
+  //
+  // The second is the one that usually bites: percent-encoding inflates real
+  // prose by 1.2–3x, so a prompt comfortably inside a character budget can
+  // still be refused with a 414 before any application code runs.
+  const maxEncoded = def.maxEncoded ?? DEFAULT_MAX_ENCODED;
+  const fits = (body: string) => {
+    const prompt = wrap(body);
+    return prompt.length <= def.maxLength && encodeURIComponent(prompt).length <= maxEncoded;
+  };
+
   const full = wrap(text);
   let body = text;
   let truncated = false;
   let droppedChars = 0;
 
-  if (full.length > def.maxLength) {
+  if (!fits(text)) {
     if (options.onOverflow === 'error') {
+      const encoded = encodeURIComponent(full).length;
       throw new Error(
-        `Prompt is ${full.length} characters but ${def.name} accepts ${def.maxLength}. ` +
+        `Prompt is ${full.length} characters (${encoded} encoded) but ${def.name} ` +
+          `accepts ${def.maxLength} characters within ${maxEncoded} encoded bytes. ` +
           `Shorten the content or pass onOverflow: 'truncate'.`
       );
     }
-    const overhead = full.length - text.length;
-    const budget = Math.max(0, def.maxLength - overhead - 1);
-    body = text.slice(0, budget) + '…';
-    droppedChars = text.length - budget;
+
+    // Binary-search the longest prefix that clears both ceilings. A ratio
+    // estimate would be wrong for mixed content, where a run of newlines
+    // encodes at 3x and a run of letters at 1x.
+    let lo = 0;
+    let hi = text.length;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      if (fits(text.slice(0, mid) + '…')) lo = mid;
+      else hi = mid - 1;
+    }
+
+    body = text.slice(0, lo) + '…';
+    droppedChars = text.length - lo;
     truncated = true;
   }
 

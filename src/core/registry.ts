@@ -39,14 +39,24 @@ export interface ServiceDefinition {
   /** Static parameters the service requires alongside the prompt. */
   extraParams?: Record<string, string>;
   /**
-   * Maximum prompt characters the service accepts.
+   * Maximum prompt characters the *application* accepts.
    *
-   * Where the vendor documents a limit we use it. Where none is documented we
-   * use a conservative value rather than an optimistic one: overshooting
-   * produces a request the service rejects outright, which is a worse failure
-   * than sending slightly less than we could have.
+   * Distinct from the transport limit below. Claude documents ~14,000 and
+   * chat-ui hard-codes 10,000, but those are checks the page runs after the
+   * request arrives — a request can die at the edge long before reaching them.
    */
   maxLength: number;
+  /**
+   * Maximum percent-encoded bytes the prompt parameter may contribute to the
+   * URL, i.e. the transport limit.
+   *
+   * This is the one that actually bites. Four unrelated services all refuse
+   * near 8,150 bytes, which is nginx's default 8KB request-line buffer, so
+   * {@link DEFAULT_MAX_ENCODED} is the floor unless a service is measured
+   * higher. Encoding inflates real prose by 1.2–3× (every newline becomes
+   * `%0A`, every space `+`), so budgeting in characters silently overshoots.
+   */
+  maxEncoded?: number;
   /**
    * Whether the service runs the prompt on arrival, or merely fills the
    * composer and waits for the user to press Enter.
@@ -80,6 +90,16 @@ export interface ServiceDefinition {
 }
 
 const VERIFIED_ON = '2026-08-29';
+
+/**
+ * Default encoded-byte ceiling.
+ *
+ * Measured independently at ~8,155 on HuggingChat, Kagi and Z.ai, and ~8,200
+ * on DeepSeek — the signature of nginx's 8KB request-line buffer rather than
+ * any decision those vendors made. Assume it everywhere it has not been
+ * measured higher.
+ */
+export const DEFAULT_MAX_ENCODED = 7800;
 
 const RAW_DEFINITIONS = [
   {
@@ -168,7 +188,8 @@ const RAW_DEFINITIONS = [
     vendor: 'DeepSeek',
     url: 'https://chat.deepseek.com/',
     param: 'q',
-    maxLength: 12000,
+    maxLength: 8000,
+    capSource: 'measured',
     autoSubmit: false,
     color: '#4d6bfe',
     tier: 'verified',
@@ -238,6 +259,7 @@ const RAW_DEFINITIONS = [
     param: 'q',
     extraParams: { bang: 'true', prompt: '1' },
     maxLength: 12000,
+    maxEncoded: 12500,
     capSource: 'measured',
     autoSubmit: true,
     color: '#de5833',
@@ -256,7 +278,8 @@ const RAW_DEFINITIONS = [
     vendor: 'Zhipu AI',
     url: 'https://chat.z.ai/',
     param: 'q',
-    maxLength: 12000,
+    maxLength: 8000,
+    capSource: 'measured',
     autoSubmit: true,
     color: '#3b82f6',
     tier: 'verified',
@@ -274,6 +297,7 @@ const RAW_DEFINITIONS = [
     url: 'https://kimi.com/',
     param: 'prefill_prompt',
     maxLength: 12000,
+    maxEncoded: 15500,
     autoSubmit: false,
     color: '#1a1a1a',
     tier: 'verified',
@@ -287,6 +311,7 @@ const RAW_DEFINITIONS = [
     url: 'https://chat.qwen.ai/',
     param: 'text',
     maxLength: 12000,
+    maxEncoded: 15500,
     autoSubmit: false,
     color: '#615ced',
     tier: 'verified',

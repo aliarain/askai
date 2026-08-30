@@ -16,6 +16,7 @@ export {
   SERVICE_DEFINITIONS,
   VERIFIED_SERVICE_IDS,
   DEFAULT_SERVICE_IDS,
+  DEFAULT_MAX_ENCODED,
 } from './registry';
 
 // Registry access

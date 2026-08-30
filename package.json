@@ -39,7 +39,8 @@
     "typecheck": "tsc --noEmit",
     "test:coverage": "vitest run --coverage",
     "prepublishOnly": "npm run build && npm test",
-    "generate:logos": "node scripts/generate-logos.mjs"
+    "generate:logos": "node scripts/generate-logos.mjs",
+    "verify:destinations": "node scripts/verify-destinations.mjs"
   },
   "dependencies": {
     "picocolors": "^1.0.0",

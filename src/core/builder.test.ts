@@ -6,7 +6,7 @@ import {
   validateUrl,
   looksLikeCode,
 } from './builder';
-import { VERIFIED_SERVICE_IDS } from './registry';
+import { VERIFIED_SERVICE_IDS, DEFAULT_MAX_ENCODED } from './registry';
 import { getService } from './services';
 
 const GOAL = 'Explain this';
@@ -159,5 +159,37 @@ describe('looksLikeCode', () => {
     ['', false],
   ])('classifies %j as code=%s', (input, expected) => {
     expect(looksLikeCode(input as string)).toBe(expected);
+  });
+});
+
+describe('encoded transport budget', () => {
+  // Percent-encoding is where the real limit lives: every newline becomes %0A
+  // and every space a +, so prose inflates well past its character count.
+  it('keeps the encoded prompt inside every destination transport ceiling', () => {
+    // Deliberately encoding-hostile: newlines and punctuation, not plain 'a'.
+    const nasty = 'const x = {\n  "key": "value",\n};\n'.repeat(2000);
+    for (const id of VERIFIED_SERVICE_IDS) {
+      const def = getService(id)!;
+      const ceiling = def.maxEncoded ?? DEFAULT_MAX_ENCODED;
+      const result = buildPrompt(GOAL, nasty, id);
+      const value = new URL(result.url).searchParams.get(def.param)!;
+      expect(encodeURIComponent(value).length, `${id} encoded`).toBeLessThanOrEqual(ceiling);
+      expect(value.length, `${id} chars`).toBeLessThanOrEqual(def.maxLength);
+      expect(result.truncated, id).toBe(true);
+    }
+  });
+
+  it('truncates on encoded size even when the character count would fit', () => {
+    // 4000 newlines: 4000 characters, but 12000 bytes once encoded.
+    const newlines = '\n'.repeat(4000);
+    const result = buildPrompt(GOAL, newlines, 'chatgpt');
+    expect(newlines.length).toBeLessThan(getService('chatgpt')!.maxLength);
+    expect(result.truncated).toBe(true);
+  });
+
+  it('reports the encoded size when refusing to truncate', () => {
+    expect(() =>
+      buildPrompt(GOAL, '\n'.repeat(9000), 'chatgpt', { onOverflow: 'error' })
+    ).toThrow(/encoded/);
   });
 });

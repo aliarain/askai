@@ -1,0 +1,63 @@
+name: Verify destinations
+
+# Deep-link parameters are undocumented and change without notice. A catalogue
+# this size cannot be kept honest by hand, so probe it weekly and raise an issue
+# when something moves.
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      - id: probe
+        run: |
+          set -o pipefail
+          npm run verify:destinations 2>&1 | tee probe.log
+        continue-on-error: true
+
+      - name: Raise an issue on drift
+        if: steps.probe.outcome == 'failure' || contains(fromJSON('["failure"]'), steps.probe.outcome)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.readFileSync('probe.log', 'utf8').slice(0, 60000);
+            const title = 'Destination drift detected';
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'drift',
+            });
+            const body = [
+              'The weekly probe found a destination whose behaviour no longer matches the registry.',
+              '',
+              'A vendor blocking the runner is an advisory, not a regression — check the log before',
+              'changing any value, and never promote a measurement to `documented`.',
+              '',
+              '```', log, '```',
+            ].join('\n');
+            if (open.length) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: open[0].number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ['drift'],
+              });
+            }
