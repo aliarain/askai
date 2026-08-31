@@ -2,6 +2,39 @@
   "name": "@raptrx/askai",
   "version": "2.0.0",
   "description": "Verified AI deep-links and an Ask AI split button for ChatGPT, Claude, Perplexity, Grok and more",
+  "keywords": [
+    "ai",
+    "chatgpt",
+    "claude",
+    "perplexity",
+    "grok",
+    "deepseek",
+    "mistral",
+    "qwen",
+    "kimi",
+    "prompt",
+    "deep-link",
+    "ask-ai",
+    "react",
+    "cli"
+  ],
+  "homepage": "https://docs.aliarain.com/askai",
+  "bugs": {
+    "url": "https://github.com/aliarain/askai/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aliarain/askai.git"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Ali Arain",
+    "url": "https://aliarain.com"
+  },
+  "funding": {
+    "type": "individual",
+    "url": "https://aliarain.com"
+  },
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -30,6 +63,7 @@
   "files": [
     "dist"
   ],
+  "sideEffects": false,
   "scripts": {
     "build": "rollup -c rollup.config.mjs",
     "dev": "rollup -c rollup.config.mjs -w",
@@ -58,29 +92,6 @@
     "typescript": "^5.9.3",
     "vitest": "^1.1.0"
   },
-  "author": "Ali Arain",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/aliarain/askai.git"
-  },
-  "keywords": [
-    "ai",
-    "chatgpt",
-    "claude",
-    "perplexity",
-    "grok",
-    "deepseek",
-    "mistral",
-    "qwen",
-    "kimi",
-    "prompt",
-    "deep-link",
-    "ask-ai",
-    "react",
-    "cli"
-  ],
-  "sideEffects": false,
   "peerDependencies": {
     "react": ">=17.0.0"
   },

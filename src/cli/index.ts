@@ -144,6 +144,14 @@ async function init(): Promise<void> {
     );
     console.log();
   }
+
+  console.log(
+    pc.dim('  Docs ') +
+      pc.cyan('https://docs.aliarain.com/askai') +
+      pc.dim('  ·  Built by Ali Arain ') +
+      pc.cyan('https://aliarain.com')
+  );
+  console.log();
 }
 
 function showHelp(): void {
@@ -161,7 +169,9 @@ function showHelp(): void {
       pc.cyan('list') +
       '        Show every destination and its verification status' +
       '\n\n' +
-      pc.dim('  Docs: https://docs.aliarain.com/askai') +
+      pc.dim('  Docs   https://docs.aliarain.com/askai') +
+      '\n' +
+      pc.dim('  Built by Ali Arain — https://aliarain.com') +
       '\n'
   );
 }
@@ -188,6 +198,12 @@ function list(): void {
     }
     console.log();
   }
+  console.log(
+    pc.dim('  Parameters re-verified weekly. Report drift at ') +
+      pc.cyan('https://github.com/aliarain/askai/issues')
+  );
+  console.log(pc.dim('  Built by Ali Arain — ') + pc.cyan('https://aliarain.com'));
+  console.log();
 }
 
 async function main(): Promise<void> {
