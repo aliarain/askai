@@ -290,12 +290,18 @@ export function useAskAI({
       role: 'menu',
       'aria-label': 'AI destinations',
       onKeyDown: onMenuKeyDown,
+      // Hovering sets the active index, which also moves real DOM focus.
+      // Without this, sliding the pointer off the menu leaves a row both
+      // highlighted and focused with nothing pointing at it.
+      onPointerLeave: () => setActiveIndex(-1),
     }),
 
     getItemProps: (index: number) => {
       const result = destinations[index];
       return {
-        key: String(result?.service ?? index),
+        // Index-joined: a caller may legitimately pass the same destination
+        // twice, and duplicate React keys silently drop rows.
+        key: `${index}-${String(result?.service ?? 'unknown')}`,
         ref: (el: HTMLAnchorElement | null) => {
           itemRefs.current[index] = el;
         },

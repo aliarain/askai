@@ -16,24 +16,25 @@ import { DEFAULT_MAX_ENCODED } from './registry';
  * sees unfenced code, which it handles fine. Neither is worth an elaborate
  * detector, so this only fires on signals that prose essentially never emits.
  */
+export const CODE_SIGNALS: readonly RegExp[] = [
+  // Statements that open a line in most languages.
+  /^\s*(import|export|const|let|var|function|class|interface|type|def|from|package|using|fn|impl)\s/m,
+  // A closing paren or brace followed by an arrow, allowing the space that
+  // real code always has. The original pattern required them to be adjacent,
+  // which no formatter produces, so it never matched anything.
+  /[)\]}]\s*=>/,
+  // Braces that open a block at end of line.
+  /\{\s*$/m,
+  // Python's entry-point idiom.
+  /^\s*if\s+__name__\s*==/m,
+  // A tag that opens at the start of a token, not a stray less-than.
+  /<\/?[A-Za-z][A-Za-z0-9-]*(\s[^<>]*)?\/?>/,
+  // Indented continuation lines, the shape of a function body.
+  /^(\s{2,}|\t)\S.*\n^(\s{2,}|\t)\S/m,
+];
+
 export function looksLikeCode(content: string): boolean {
-  const signals = [
-    // Statements that open a line in most languages.
-    /^\s*(import|export|const|let|var|function|class|interface|type|def|from|package|using|fn|impl)\s/m,
-    // A closing paren or brace followed by an arrow, allowing the space that
-    // real code always has. The original pattern required them to be adjacent,
-    // which no formatter produces, so it never matched anything.
-    /[)\]}]\s*=>/,
-    // Braces that open a block at end of line.
-    /\{\s*$/m,
-    // Python's entry-point idiom.
-    /^\s*if\s+__name__\s*==/m,
-    // A tag that opens at the start of a token, not a stray less-than.
-    /<\/?[A-Za-z][A-Za-z0-9-]*(\s[^<>]*)?\/?>/,
-    // Indented continuation lines, the shape of a function body.
-    /^(\s{2,}|\t)\S.*\n^(\s{2,}|\t)\S/m,
-  ];
-  return signals.some((re) => re.test(content));
+  return CODE_SIGNALS.some((re) => re.test(content));
 }
 
 function resolveFormat(

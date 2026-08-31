@@ -28,6 +28,7 @@ export interface AskAIClassNames {
   item?: string;
   itemLabel?: string;
   itemHint?: string;
+  label?: string;
   icon?: string;
   separator?: string;
   footer?: string;
@@ -81,6 +82,24 @@ function cx(builtIn: string | undefined, custom: string | undefined, unstyled: b
 }
 
 /**
+ * Visually hidden, without depending on the stylesheet.
+ *
+ * `unstyled` drops the `askai-sr` class, and a class that isn't there hides
+ * nothing — the announcement would render as visible body text mid-menu.
+ */
+const SR_ONLY: React.CSSProperties = {
+  position: 'absolute',
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: 'hidden',
+  clipPath: 'inset(50%)',
+  whiteSpace: 'nowrap',
+  border: 0,
+};
+
+/**
  * A split button: copy the prompt, or send it to an AI.
  *
  * The primary half copies, because copying has no length ceiling and works
@@ -115,6 +134,7 @@ export const AskAI: React.FC<AskAIProps> = ({
   style,
 }) => {
   const ai = useAskAI({ goal, content, services, options, onCopy, onOpen });
+  const footerId = React.useId();
   const CopyGlyph = ai.copied ? CheckIcon : CopyIcon;
 
   return (
@@ -130,9 +150,17 @@ export const AskAI: React.FC<AskAIProps> = ({
           className={cx('askai-btn askai-btn--primary', cn.copyButton, unstyled)}
         >
           <CopyGlyph className={cx('askai-icon', cn.icon, unstyled)} />
-          {/* The label changes as well as the icon, so the state is never
-              carried by the glyph alone. */}
-          <span>{ai.copied ? copiedLabel : label}</span>
+          {/* Both labels occupy one grid cell so the button keeps the width of
+              the wider. The text changes as well as the icon, so the copied
+              state is never carried by the glyph alone. */}
+          <span className={cx('askai-label', cn.label, unstyled)}>
+            <span aria-hidden={!ai.copied} data-ghost={ai.copied ? undefined : ''}>
+              {copiedLabel}
+            </span>
+            <span aria-hidden={ai.copied} data-ghost={ai.copied ? '' : undefined}>
+              {label}
+            </span>
+          </span>
         </button>
 
         <div className={cx('askai-divider', cn.divider, unstyled)} aria-hidden="true" />
@@ -150,11 +178,14 @@ export const AskAI: React.FC<AskAIProps> = ({
       {ai.isOpen && (
         <ul
           {...ai.getMenuProps()}
+          /* Described, not appended: a screen reader meets the explanation as
+             it enters the menu rather than after every unexplained "Runs". */
+          aria-describedby={hideFooter ? undefined : footerId}
           className={cx('askai-menu', cn.menu, unstyled)}
           data-align={align}
         >
           {ai.destinations.map((result, i) => {
-            const Icon = getIcon(String(result.service), icons);
+            const Icon = getIcon(String(result.service), icons, result.color);
             const { key, ...itemProps } = ai.getItemProps(i);
             return (
               <li key={key} role="none">
@@ -167,12 +198,24 @@ export const AskAI: React.FC<AskAIProps> = ({
                   <span className={cx('askai-item-label', cn.itemLabel, unstyled)}>
                     {result.name}
                   </span>
-                  <span className={cx('askai-item-hint', cn.itemHint, unstyled)}>
-                    {result.autoSubmit ? 'Runs' : 'Ready'}
+                  <span
+                    className={cx('askai-item-hint', cn.itemHint, unstyled)}
+                    data-truncated={result.truncated || undefined}
+                  >
+                    {result.truncated
+                      ? 'Shortened'
+                      : result.autoSubmit
+                        ? 'Runs'
+                        : 'Ready'}
                   </span>
                   {result.truncated && (
-                    <span className={unstyled ? undefined : 'askai-sr'}>
-                      {`Content shortened by ${result.droppedChars} characters to fit ${result.name}. Use ${label} to send all of it.`}
+                    <span
+                      className={unstyled ? undefined : 'askai-sr'}
+                      style={unstyled ? SR_ONLY : undefined}
+                    >
+                      {`Shortened by ${result.droppedChars} characters to fit ${result.name}, which ` +
+                        `${result.autoSubmit ? 'runs the prompt on arrival' : 'waits for you to press Enter'}. ` +
+                        `Use ${label} to send all of it.`}
                     </span>
                   )}
                 </a>
@@ -184,8 +227,13 @@ export const AskAI: React.FC<AskAIProps> = ({
               <li role="none">
                 <hr className={cx('askai-sep', cn.separator, unstyled)} />
               </li>
-              <li role="none" className={cx('askai-section', cn.footer, unstyled)}>
-                Opens in a new tab. &ldquo;Ready&rdquo; means press Enter to send.
+              <li
+                role="none"
+                id={footerId}
+                className={cx('askai-section', cn.footer, unstyled)}
+              >
+                Opens in a new tab. &ldquo;Runs&rdquo; sends straight away;
+                &ldquo;Ready&rdquo; fills the box for you to press Enter.
               </li>
             </>
           )}

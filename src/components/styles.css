@@ -9,6 +9,20 @@
  * nothing here leaks into surrounding markup.
  */
 
+/*
+ * Own our own box model. Without this the stylesheet inherits whatever reset
+ * the host page happens to have: `.askai-item` is width:100% with horizontal
+ * padding, so on content-box it renders wider than the menu containing it and
+ * every hover fill hangs past the rounded corner. It also made the control
+ * 36px on a bare page and 34px under Tailwind — one stylesheet, two sizes.
+ */
+.askai,
+.askai *,
+.askai *::before,
+.askai *::after {
+  box-sizing: border-box;
+}
+
 .askai {
   /* Surfaces */
   --askai-bg: #ffffff;
@@ -27,6 +41,9 @@
 
   /* Focus */
   --askai-focus: #2563eb;
+
+  /* Reserved for truncation, which is a loss of content, not a neutral state. */
+  --askai-warn: #a4501a;
 
   /* Shape. The menu radius is the item radius plus the menu padding, so nested
      corners stay concentric. */
@@ -59,6 +76,7 @@
       0 2px 4px rgb(0 0 0 / 0.3),
       0 8px 24px rgb(0 0 0 / 0.45);
     --askai-focus: #60a5fa;
+    --askai-warn: #e0975a;
   }
 }
 
@@ -75,6 +93,7 @@
     0 2px 4px rgb(0 0 0 / 0.3),
     0 8px 24px rgb(0 0 0 / 0.45);
   --askai-focus: #60a5fa;
+  --askai-warn: #e0975a;
 }
 
 /* ---------------------------------------------------------------------------
@@ -87,6 +106,7 @@
   background: var(--askai-bg);
   border: 1px solid var(--askai-border);
   border-radius: var(--askai-radius);
+  transition: scale var(--askai-duration) var(--askai-ease);
 }
 
 .askai-btn {
@@ -96,7 +116,9 @@
   /* 32px content + padding clears the 40px desktop target once the border is
      counted, and the 24px WCAG minimum with room to spare. */
   min-height: 34px;
-  padding: 0 10px;
+  /* Tighter on the icon side: equal padding makes a leading glyph read as
+     pushed right, because a glyph carries less optical weight than text. */
+  padding: 0 10px 0 8px;
   margin: 0;
   border: 0;
   background: transparent;
@@ -115,8 +137,37 @@
   background: var(--askai-bg-hover);
 }
 
+/*
+ * Reserve the width of the widest label so swapping "Copy prompt" for "Copied"
+ * cannot resize the button. Both strings share one grid cell and the hidden one
+ * still contributes width. Otherwise the group narrows ~39px on copy and the
+ * caret jumps left while the user is reaching for it.
+ */
+.askai-label {
+  display: inline-grid;
+  grid-template-areas: 'label';
+  justify-items: start;
+}
+
+.askai-label > * {
+  grid-area: label;
+}
+
+.askai-label > [data-ghost] {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/*
+ * Background on the half that was pressed, scale on the whole group. Scaling
+ * one half of a control that shares a border and a divider detaches its fill
+ * from the rounded corner and shows the group background through as a seam.
+ */
 .askai-btn:active {
   background: var(--askai-bg-active);
+}
+
+.askai-group:has(.askai-btn:active) {
   scale: 0.96;
 }
 
@@ -173,6 +224,11 @@
   inset-inline-end: 0;
   min-width: 200px;
   max-width: min(280px, 90vw);
+  /* services="all" is 18 rows. Without a ceiling the menu runs off-screen for
+     any control below the fold and the last destinations become unreachable. */
+  max-height: min(60vh, 26rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: var(--askai-padding);
   margin: 0;
   list-style: none;
@@ -235,6 +291,13 @@
   flex: none;
   font-size: 11px;
   color: var(--askai-fg-muted);
+}
+
+/* Truncation is a loss of content, not a neutral state, and must not read as
+   one. The word is also present, so this is never colour-only. */
+.askai-item-hint[data-truncated='true'] {
+  color: var(--askai-warn);
+  font-weight: 600;
 }
 
 .askai-icon {
@@ -341,5 +404,19 @@
   .askai-btn:focus-visible,
   .askai-item:focus-visible {
     outline-color: Highlight;
+  }
+
+  /* A forced palette drops these backgrounds, which would erase both
+     separators and leave the keyboard-active row indistinguishable. */
+  .askai-divider,
+  .askai-sep {
+    background: CanvasText;
+    forced-color-adjust: none;
+  }
+
+  .askai-item[data-active='true'] {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
   }
 }

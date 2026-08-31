@@ -1,4 +1,4 @@
-import type { ServiceDefinition } from '../core';
+import { CODE_SIGNALS, type ServiceDefinition } from '../core';
 
 /**
  * Templates for the files the CLI writes into a consumer's project.
@@ -75,10 +75,7 @@ export interface PromptResult {
 
 function looksLikeCode(text: string): boolean {
   return [
-    /^\\s*(import|export|const|let|var|function|class|interface|type|def|from)\\s/m,
-    /[)\\]}]\\s*=>/,
-    /\\{\\s*$/m,
-    /<\\/?[A-Za-z][A-Za-z0-9-]*(\\s[^<>]*)?\\/?>/,
+${CODE_SIGNALS.map((re) => '    ' + re.toString()).join(',\n')}
   ].some((re) => re.test(text));
 }
 

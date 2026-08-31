@@ -34,27 +34,91 @@ const MAP = {
   zai: 'zai.svg',
 };
 
-/** Brand colours for the monogram fallback, from the registry. */
+/**
+ * Monogram fallbacks, for vendors whose real mark we do not hold.
+ *
+ * Two letters, not one: at `services="all"` a single letter collides three
+ * ways — DeepSeek/Duck.ai, AI Studio/GitHub Copilot, Kagi/Kimi — and the icon
+ * column exists precisely to tell those rows apart.
+ */
 const MONOGRAM = {
-  kagi: ['K', '#ffb319'],
-  deepseek: ['D', '#4d6bfe'],
-  t3chat: ['T', '#ca0277'],
-  huggingchat: ['H', '#ff9d00'],
-  duckai: ['D', '#de5833'],
-  kimi: ['K', '#1a1a1a'],
-  cursor: ['C', '#000000'],
-  aistudio: ['G', '#4285f4'],
-  'github-copilot': ['G', '#0078d4'],
-  v0: ['V', '#000000'],
-  scira: ['S', '#0f172a'],
+  kagi: ['Kg', '#ffb319'],
+  deepseek: ['Ds', '#4d6bfe'],
+  t3chat: ['T3', '#ca0277'],
+  huggingchat: ['Hf', '#ff9d00'],
+  duckai: ['Dd', '#de5833'],
+  kimi: ['Km', '#1a1a1a'],
+  cursor: ['Cu', '#000000'],
+  aistudio: ['As', '#4285f4'],
+  'github-copilot': ['Gh', '#0078d4'],
+  v0: ['v0', '#000000'],
+  scira: ['Sc', '#0f172a'],
 };
+
+/** WCAG relative luminance, so ink can be chosen rather than assumed. */
+function luminance(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+}
+
+function contrast(a, b) {
+  const [l1, l2] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (l1 + 0.05) / (l2 + 0.05);
+}
+
+/**
+ * Pick the ink that actually reads on this tile.
+ *
+ * White on Kagi's #ffb319 measures 1.77:1 and on HuggingChat's #ff9d00 2.08:1 —
+ * both illegible. Choose whichever of near-black or white contrasts better
+ * rather than defaulting to white.
+ */
+function inkFor(tile) {
+  return contrast(tile, '#ffffff') >= contrast(tile, '#151517') ? '#ffffff' : '#151517';
+}
 
 const pascal = (id) =>
   id.replace(/(^|[-_])(\w)/g, (_, __, c) => c.toUpperCase()) + 'Logo';
 
-/** Pull the viewBox and inner markup out of an SVG file. */
+/** React equivalent of a hyphenated SVG attribute. */
+function camel(attr) {
+  return attr.replace(/-(\w)/g, (_, c) => c.toUpperCase());
+}
+
+/**
+ * Presentation attributes that live on the root `<svg>` and are inherited by
+ * every child.
+ *
+ * Dropping these silently changes the mark. `fill="currentColor"` is what makes
+ * a monochrome logo take the surrounding text colour — without it the paths
+ * default to black and vanish on a dark menu — and `fill-rule="evenodd"` is
+ * what punches the holes out of the OpenAI knot. Neither is decoration.
+ */
+const INHERITED = [
+  'fill',
+  'fill-rule',
+  'clip-rule',
+  'stroke',
+  'stroke-width',
+  'stroke-linecap',
+  'stroke-linejoin',
+];
+
+/** Pull the viewBox, inherited presentation attributes, and inner markup. */
 function parse(svg) {
   const viewBox = (svg.match(/viewBox="([^"]+)"/) || [, '0 0 24 24'])[1];
+
+  const root = (svg.match(/<svg[^>]*>/) || [''])[0];
+  const rootAttrs = {};
+  for (const attr of INHERITED) {
+    const m = root.match(new RegExp(`\\s${attr}="([^"]*)"`));
+    if (m) rootAttrs[camel(attr)] = m[1];
+  }
+
   const inner = svg
     .replace(/^[\s\S]*?<svg[^>]*>/, '')
     .replace(/<\/svg>[\s\S]*$/, '')
@@ -67,7 +131,7 @@ function parse(svg) {
       return ` ${camel}=${value}`;
     })
     .trim();
-  return { viewBox, inner };
+  return { viewBox, inner, rootAttrs };
 }
 
 const parts = [];
@@ -78,12 +142,15 @@ for (const [id, file] of Object.entries(MAP)) {
   if (!fs.existsSync(full)) {
     throw new Error(`Missing logo file for "${id}": ${file}`);
   }
-  const { viewBox, inner } = parse(fs.readFileSync(full, 'utf8'));
+  const { viewBox, inner, rootAttrs } = parse(fs.readFileSync(full, 'utf8'));
   const name = pascal(id);
+  const attrs = Object.entries(rootAttrs)
+    .map(([k, v]) => ` ${k}=${JSON.stringify(v)}`)
+    .join('');
   parts.push(
     `/** ${id} — from src/logos/${file}, unmodified. */\n` +
       `export const ${name}: React.FC<IconProps> = ({ size = 16, ...rest }) => (\n` +
-      `  <svg width={size} height={size} viewBox="${viewBox}" aria-hidden="true" focusable="false" {...rest}>\n` +
+      `  <svg width={size} height={size} viewBox="${viewBox}"${attrs} aria-hidden="true" focusable="false" {...rest}>\n` +
       `    ${inner}\n` +
       `  </svg>\n` +
       `);\n${name}.displayName = ${JSON.stringify(name)};`
@@ -91,12 +158,13 @@ for (const [id, file] of Object.entries(MAP)) {
   entries.push(`  ${JSON.stringify(id)}: ${name},`);
 }
 
-for (const [id, [letter, color]] of Object.entries(MONOGRAM)) {
+for (const [id, [letters, color]] of Object.entries(MONOGRAM)) {
   const name = pascal(id);
+  const ink = inkFor(color);
   parts.push(
-    `/** ${id} — monogram. We hold no verified mark for this vendor. */\n` +
+    `/** ${id} — monogram (${contrast(color, ink).toFixed(2)}:1). No verified mark held. */\n` +
       `export const ${name}: React.FC<IconProps> = (props) => (\n` +
-      `  <Monogram letter=${JSON.stringify(letter)} color=${JSON.stringify(color)} {...props} />\n` +
+      `  <Monogram letters=${JSON.stringify(letters)} color=${JSON.stringify(color)} ink=${JSON.stringify(ink)} {...props} />\n` +
       `);\n${name}.displayName = ${JSON.stringify(name)};`
   );
   entries.push(`  ${JSON.stringify(id)}: ${name},`);
@@ -122,25 +190,41 @@ const out = `/* eslint-disable */
 import * as React from 'react';
 import type { IconProps } from './icons';
 
-const Monogram: React.FC<IconProps & { letter: string; color: string }> = ({
-  letter,
-  color,
-  size = 16,
-  ...rest
-}) => (
+/**
+ * A two-letter tile in the vendor's brand colour.
+ *
+ * The hairline ring is \`currentColor\` at low opacity, so it follows the
+ * surrounding text: light on a dark menu, dark on a light one. Without it the
+ * near-black tiles (Kimi, Cursor, v0, Scira) disappear entirely against the
+ * dark surface, which is exactly the failure a fallback is supposed to prevent.
+ */
+const Monogram: React.FC<
+  IconProps & { letters: string; color: string; ink: string }
+> = ({ letters, color, ink, size = 16, ...rest }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false" {...rest}>
     <rect width="24" height="24" rx="6" fill={color} />
+    <rect
+      x="0.5"
+      y="0.5"
+      width="23"
+      height="23"
+      rx="5.5"
+      fill="none"
+      stroke="currentColor"
+      strokeOpacity="0.22"
+    />
     <text
       x="12"
-      y="12"
+      y="12.5"
       textAnchor="middle"
       dominantBaseline="central"
-      fill="#ffffff"
-      fontSize="13"
-      fontWeight="600"
+      fill={ink}
+      fontSize="11"
+      fontWeight="650"
+      letterSpacing="-0.5"
       fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
     >
-      {letter}
+      {letters}
     </text>
   </svg>
 );

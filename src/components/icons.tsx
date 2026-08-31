@@ -92,7 +92,49 @@ export const MarkdownIcon = glyph(
  */
 export type ServiceIcons = Record<string, React.FC<IconProps>>;
 
-/** Resolve the glyph for a destination, falling back to the neutral sparkle. */
-export function getIcon(service: string, icons?: ServiceIcons): React.FC<IconProps> {
-  return icons?.[service] ?? SparkleIcon;
+/**
+ * A neutral dot in the destination's own brand colour.
+ *
+ * The default fallback used to be one identical sparkle for every row, so the
+ * icon column carried no information at all while the registry already held a
+ * colour per service. A dot is not a logo — it borrows no mark — but it does
+ * let the eye tell rows apart and find a familiar destination without reading.
+ */
+export const BrandDot: React.FC<IconProps & { color?: string }> = ({
+  size = 16,
+  color = 'currentColor',
+  ...rest
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 16 16"
+    fill="none"
+    aria-hidden="true"
+    focusable="false"
+    {...rest}
+  >
+    <circle cx="8" cy="8" r="5" fill={color} />
+    <circle cx="8" cy="8" r="5" stroke="currentColor" strokeOpacity="0.22" />
+  </svg>
+);
+BrandDot.displayName = 'BrandDot';
+
+/**
+ * Resolve the glyph for a destination.
+ *
+ * A consumer-supplied icon wins; otherwise a brand-coloured dot when we know
+ * the colour, and the neutral sparkle when we do not.
+ */
+export function getIcon(
+  service: string,
+  icons?: ServiceIcons,
+  color?: string
+): React.FC<IconProps> {
+  const custom = icons?.[service];
+  if (custom) return custom;
+  if (!color) return SparkleIcon;
+  const Dot: React.FC<IconProps> = (props) => <BrandDot color={color} {...props} />;
+  Dot.displayName = `BrandDot(${service})`;
+  return Dot;
 }
