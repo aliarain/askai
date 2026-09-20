@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.0.1
+
+- Ships as a shadcn registry item: `npx shadcn@latest add @raptrx/askai`
+  (or by URL). The UI is copied into `components/ui/`; the destination
+  data stays a dependency so it keeps updating. Works on both the Base UI
+  and Radix generations of shadcn.
+- The registry JSON (`r/`) is included in the package, so a version-pinned
+  install URL exists at `https://unpkg.com/@raptrx/askai@2.0.1/r/askai.json`.
+- README leads with the shadcn path.
+- No changes to the library code, the CLI, or the stylesheet.
+
 ## 2.0.0
 
 ### Verification round two (2026-08-30)

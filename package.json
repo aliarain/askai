@@ -61,7 +61,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "r"
   ],
   "sideEffects": false,
   "scripts": {
