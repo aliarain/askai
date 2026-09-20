@@ -74,7 +74,8 @@
     "test:coverage": "vitest run --coverage",
     "prepublishOnly": "npm run build && npm test",
     "generate:logos": "node scripts/generate-logos.mjs",
-    "verify:destinations": "node scripts/verify-destinations.mjs"
+    "verify:destinations": "node scripts/verify-destinations.mjs",
+    "build:registry": "node scripts/build-registry.mjs"
   },
   "dependencies": {
     "picocolors": "^1.0.0",

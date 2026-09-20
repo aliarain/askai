@@ -1,0 +1,18 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "askai-demo",
+  "type": "registry:example",
+  "title": "Ask AI demo",
+  "description": "The demo from the docs: every variant of the launcher, wired to real content.",
+  "registryDependencies": [
+    "@raptrx/askai"
+  ],
+  "files": [
+    {
+      "path": "registry/examples/askai-demo.tsx",
+      "type": "registry:example",
+      "target": "components/askai-demo.tsx",
+      "content": "\"use client\";\n\nimport { AskAI } from \"@/components/ui/askai\";\n\nconst SNIPPET = `export function total(items: { price: number }[]) {\n  return items.reduce((sum, item) => sum + item.price, 0);\n}`;\n\n/**\n * Every variant, on real content. Drop this into a docs page.\n */\nexport function AskAIDemo() {\n  return (\n    <div className=\"flex flex-col gap-10\">\n      <section className=\"flex flex-col items-center gap-3\">\n        <p className=\"text-xs uppercase tracking-widest text-muted-foreground\">Default</p>\n        <AskAI\n          goal=\"Introduce this project and explain what makes it different.\"\n          content=\"askai sends anything on a page to an AI with deep links that are verified weekly.\"\n          title=\"Ask an AI about askai\"\n          description=\"Pick a destination. The prompt is already written.\"\n        />\n      </section>\n\n      <section className=\"flex flex-col items-center gap-3\">\n        <p className=\"text-xs uppercase tracking-widest text-muted-foreground\">Compact, on code</p>\n        <div className=\"relative w-full max-w-lg rounded-xl border border-border bg-muted/30 p-4 font-mono text-xs\">\n          <pre className=\"overflow-x-auto pe-14\">{SNIPPET}</pre>\n          <div className=\"absolute right-3 top-3\">\n            <AskAI\n              sparkOnly\n              size=\"compact\"\n              side=\"left\"\n              goal=\"Explain this function and suggest a test for it\"\n              content={{ text: SNIPPET, language: \"ts\" }}\n              tooltip=\"ask an ai about this\"\n            />\n          </div>\n        </div>\n      </section>\n\n      <section className=\"flex flex-col items-center gap-3\">\n        <p className=\"text-xs uppercase tracking-widest text-muted-foreground\">\n          Every verified destination\n        </p>\n        <AskAI\n          services=\"all\"\n          label=\"pick from 18\"\n          side=\"bottom\"\n          goal=\"Summarise this\"\n          content=\"Deep-link parameters are undocumented and change without notice. This package verifies them weekly and refuses the ones that never worked.\"\n          description=\"All eighteen verified destinations. Deprecated ones are excluded automatically.\"\n        />\n      </section>\n    </div>\n  );\n}\n"
+    }
+  ]
+}

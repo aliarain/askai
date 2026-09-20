@@ -1,0 +1,47 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "raptrx",
+  "homepage": "https://docs.aliarain.com/askai",
+  "items": [
+    {
+      "name": "askai",
+      "type": "registry:ui",
+      "title": "Ask AI",
+      "description": "A popover launcher that sends anything on your page to ChatGPT, Claude, Perplexity, Grok and fourteen more — with deep links that are verified weekly rather than copied once.",
+      "dependencies": [
+        "@raptrx/askai@^2.0.0",
+        "lucide-react"
+      ],
+      "registryDependencies": [
+        "popover"
+      ],
+      "files": [
+        {
+          "path": "registry/ui/askai.tsx",
+          "type": "registry:ui",
+          "target": "components/ui/askai.tsx"
+        }
+      ],
+      "categories": [
+        "ai",
+        "buttons"
+      ]
+    },
+    {
+      "name": "askai-demo",
+      "type": "registry:example",
+      "title": "Ask AI demo",
+      "description": "The demo from the docs: every variant of the launcher, wired to real content.",
+      "registryDependencies": [
+        "@raptrx/askai"
+      ],
+      "files": [
+        {
+          "path": "registry/examples/askai-demo.tsx",
+          "type": "registry:example",
+          "target": "components/askai-demo.tsx"
+        }
+      ]
+    }
+  ]
+}
