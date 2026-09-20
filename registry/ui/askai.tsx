@@ -221,6 +221,10 @@ export function AskAI({
 
   const truncatedCount = results.filter((r) => r.truncated).length;
 
+  // A row of tall tiles reads well up to five destinations. Past that it
+  // collapses into slivers, so switch to a grid of squarer tiles.
+  const dense = results.length > 5;
+
   React.useEffect(() => {
     if (!copied) return;
     const t = setTimeout(() => setCopied(false), 2000);
@@ -290,7 +294,11 @@ export function AskAI({
             {description}
           </p>
 
-          <div className="mt-4 flex gap-1.5" role="group" aria-label="Choose an AI assistant">
+          <div
+            className={cn("mt-4 gap-1.5", dense ? "grid grid-cols-6" : "flex")}
+            role="group"
+            aria-label="Choose an AI assistant"
+          >
             {results.map((r) => {
               const Mark = logos[String(r.service)];
               const hint = r.autoSubmit
@@ -308,24 +316,28 @@ export function AskAI({
                         r.truncated ? `, shortened by ${r.droppedChars} characters` : ""
                       }`}
                       className={cn(
-                        "group/item relative flex h-[4.5rem] min-w-0 flex-1 items-center justify-center rounded-[14px] bg-muted text-foreground/60",
+                        "group/item relative flex min-w-0 items-center justify-center bg-muted text-foreground/60",
                         "transition-[transform,background-color,color,box-shadow] duration-200 ease-out",
                         "hover:-translate-y-1 hover:bg-background hover:text-foreground hover:shadow-md",
                         "focus-visible:-translate-y-1 focus-visible:bg-background focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                        "first:rounded-l-[18px] last:rounded-r-[18px]"
+                        dense
+                          ? "h-12 rounded-[12px]"
+                          : "h-[4.5rem] flex-1 rounded-[14px] first:rounded-l-[18px] last:rounded-r-[18px]"
                       )}
                     >
                       {Mark ? (
                         <Mark
-                          size={26}
+                          size={dense ? 20 : 26}
                           className="transition-transform duration-200 group-hover/item:-translate-y-1.5 group-hover/item:scale-[.94] group-focus-visible/item:-translate-y-1.5"
                         />
                       ) : (
                         <span className="text-sm font-semibold">{r.name.slice(0, 2)}</span>
                       )}
-                      <span className="absolute bottom-1.5 translate-y-1 text-[10px] opacity-0 transition-[opacity,transform] duration-200 group-hover/item:translate-y-0 group-hover/item:opacity-100 group-focus-visible/item:translate-y-0 group-focus-visible/item:opacity-100">
-                        {r.name}
-                      </span>
+                      {!dense && (
+                        <span className="absolute bottom-1.5 translate-y-1 text-[10px] opacity-0 transition-[opacity,transform] duration-200 group-hover/item:translate-y-0 group-hover/item:opacity-100 group-focus-visible/item:translate-y-0 group-focus-visible/item:opacity-100">
+                          {r.name}
+                        </span>
+                      )}
                       <ArrowUpRight
                         aria-hidden="true"
                         className="absolute right-1.5 top-1.5 size-3 text-primary opacity-0 transition-opacity duration-200 group-hover/item:opacity-100 group-focus-visible/item:opacity-100"

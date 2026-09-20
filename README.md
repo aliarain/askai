@@ -6,17 +6,33 @@
 [![license](https://img.shields.io/npm/l/@raptrx/askai)](./LICENSE)
 
 ```bash
+npx shadcn@latest add https://raw.githubusercontent.com/aliarain/askai/main/r/askai.json
+```
+
+```tsx
+import { AskAI } from "@/components/ui/askai";
+
+<AskAI goal="Explain this function" content={code} label="ask an ai" />
+```
+
+One file lands in `components/ui/`, built on your own Popover and Tailwind tokens, so it looks native on day one. Add `"@raptrx": "https://raw.githubusercontent.com/aliarain/askai/main/r/{name}.json"` under `registries` in `components.json` and it's `npx shadcn@latest add @raptrx/askai`.
+
+Not on shadcn? The same thing ships as a plain package with its own stylesheet:
+
+```bash
 npm i @raptrx/askai
 ```
 
 ```tsx
 import { AskAI } from '@raptrx/askai/react';
 import '@raptrx/askai/styles.css';
-
-<AskAI goal="Explain this function" content={code} />
 ```
 
-That renders a split button: **Copy prompt** on the left, a menu of AI destinations behind the caret.
+## The file is yours. The data isn't.
+
+The shadcn item copies the UI into your project and imports the destination data from `@raptrx/askai`. That split is the point. Every deep-link URL, parameter and length cap is re-verified weekly and arrives through npm; a copy-pasted provider list is correct on the day you paste it and rots from there. The component this was modelled on ships ChatGPT on `?q=` and Perplexity on `/search` — both broken — in every project that copied it, with no way to fix them.
+
+It also works on both generations of shadcn. Current `shadcn init` builds on Base UI; most existing projects are on Radix. The two compose differently (`render` vs `asChild`), so this file avoids the one primitive where that matters. Verified by installing into a fresh project of each kind.
 
 ---
 
