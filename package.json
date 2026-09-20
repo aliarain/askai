@@ -1,6 +1,6 @@
 {
   "name": "@raptrx/askai",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Verified AI deep-links and an Ask AI split button for ChatGPT, Claude, Perplexity, Grok and more",
   "keywords": [
     "ai",
